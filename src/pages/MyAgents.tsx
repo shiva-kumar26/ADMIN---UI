@@ -386,7 +386,8 @@ const MyAgents = () => {
                                agent.status === 'Available (On Demand)' ||
                                agent.status === 'On Break' ||
                                agent.status === 'Logged Out') &&
-                              (status === 'Available' || status === 'Available (On Demand)')
+                              (status === 'Available' || status === 'Available (On Demand)')||
+                              (agent.status === 'Logged Out' && status === 'On Break')
                             }
                           >
                             <div className="flex items-center gap-2">
