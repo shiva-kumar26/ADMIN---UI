@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,7 +8,7 @@ import { ArrowLeft, Users, Clock, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TablePagination from '../HistoricalMetrics/Pagination/TablePagination';
 import { useRealtimeMetrics } from './RealtimeMetricsContext';
- 
+
 interface AgentData {
   Extension: string;
   agent_name: string;
@@ -19,25 +20,25 @@ interface AgentData {
   login_time: string;
   status: string;
 }
- 
+
 const RealTimeAgentMetrics = () => {
   const navigate = useNavigate();
   const [agentData, setAgentData] = useState<AgentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { setAgentMetrics } = useRealtimeMetrics();
- 
+
   // State for pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
- 
+
   // Utility function to parse time string (HH:MM:SS) to seconds
   const parseTimeToSeconds = (time: string): number => {
     if (!time || time === '00:00:00') return 0;
     const [hours, minutes, seconds] = time.split(':').map(Number);
     return hours * 3600 + minutes * 60 + seconds;
   };
- 
+
   // Utility function to format seconds to HH:MM:SS
   const formatSecondsToTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
@@ -45,7 +46,9 @@ const RealTimeAgentMetrics = () => {
     const s = Math.floor(seconds % 60).toString().padStart(2, '0');
     return `${h}:${m}:${s}`;
   };
- 
+
+  
+
   useEffect(() => {
     const fetchAgentData = async () => {
       try {
@@ -53,10 +56,10 @@ const RealTimeAgentMetrics = () => {
         if (!response.ok) {
           throw new Error('Failed to fetch agent data');
         }
- 
+
         const data: AgentData[] = await response.json();
         console.log('Fetched Agent Data:', data); // Debug
- 
+
         // Filter out garbage/duplicate/malformed records and deduplicate by Extension
         const filteredData = data
           .filter(
@@ -69,24 +72,25 @@ const RealTimeAgentMetrics = () => {
           .filter((item, index, self) =>
             index === self.findIndex((t) => t.Extension === item.Extension)
           );
- 
+
         setAgentData(filteredData);
         setLoading(false);
- 
+
+        // FIX: Changed 'On Call' to 'Busy' to match backend status value
         const available = filteredData.filter((a) => a.status === 'Available').length;
-        const onCall = filteredData.filter((a) => a.status === 'On Call').length;
+        const onCall = filteredData.filter((a) => a.status === 'Busy').length;
         const breakAway = filteredData.filter((a) => a.status === 'Break' || a.status === 'Away').length;
- 
+
         // Calculate average handle time across all agents
         const avgHandleTimeSeconds = filteredData
           .map(a => parseTimeToSeconds(a.avg_handled_time))
           .filter(seconds => seconds > 0)
           .reduce((acc, curr, _, arr) => acc + curr / arr.length, 0) || 0;
         const avgHandleTime = formatSecondsToTime(avgHandleTimeSeconds);
- 
+
         const callsHandled = filteredData.reduce((acc, a) => acc + (a.calls_handled || 0), 0);
         const callHandledTime = filteredData.reduce((acc, a) => acc + parseTimeToSeconds(a.call_handled_time), 0);
- 
+
         // Set clean metrics
         setAgentMetrics({
           totalAgents: filteredData.length,
@@ -97,7 +101,7 @@ const RealTimeAgentMetrics = () => {
           callsHandled,
           callHandledTime,
         });
- 
+
         console.log('Computed Agent Metrics:', {
           totalAgents: filteredData.length,
           availableAgents: available,
@@ -107,32 +111,33 @@ const RealTimeAgentMetrics = () => {
           callsHandled,
           callHandledTime,
         });
- 
+
       } catch (err) {
         console.error('Agent Data Fetch Error:', err);
         setError('Error fetching agent data');
         setLoading(false);
       }
     };
- 
+
     fetchAgentData();
     const intervalId = setInterval(fetchAgentData, 60000);
     return () => clearInterval(intervalId);
   }, [setAgentMetrics]);
- 
+
   const totalItems = agentData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
   const paginatedData = agentData.slice(startIndex, endIndex);
- 
+
   const handlePageChange = (page: number) => setCurrentPage(page);
- 
+
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1);
   };
- 
+
+  // FIX: Added 'Busy' status to badge display with proper color
   const getStatusBadge = (status: string) => {
     if (!status) {
       return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">Unknown</Badge>;
@@ -141,19 +146,23 @@ const RealTimeAgentMetrics = () => {
       return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{status}</Badge>;
     } else if (status === 'Logged Out') {
       return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{status}</Badge>;
+    } else if (status === 'Busy') {
+      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">On Call</Badge>;
+    } else if (status === 'On Break') {
+      return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">{status}</Badge>;
     } else {
       return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{status}</Badge>;
     }
   };
- 
+
   if (loading) {
     return <div className="text-center p-6">Loading...</div>;
   }
- 
+
   if (error) {
     return <div className="text-center p-6 text-red-600">{error}</div>;
   }
- 
+
   return (
     <div className="h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -183,7 +192,7 @@ const RealTimeAgentMetrics = () => {
             </div>
           </div>
         </div>
- 
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card className="bg-white shadow-lg border-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -191,11 +200,11 @@ const RealTimeAgentMetrics = () => {
               <Users className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900 Daddy">{agentData.length}</div>
+              <div className="text-2xl font-bold text-gray-900">{agentData.length}</div>
               <p className="text-xs text-gray-600">Currently logged in</p>
             </CardContent>
           </Card>
- 
+
           <Card className="bg-white shadow-lg border-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Available Agents</CardTitle>
@@ -206,19 +215,20 @@ const RealTimeAgentMetrics = () => {
               <p className="text-xs text-gray-600">Ready to take calls</p>
             </CardContent>
           </Card>
- 
+
           <Card className="bg-white shadow-lg border-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">On Call</CardTitle>
               <Phone className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{agentData.filter((agent) => agent.status === 'On Call').length}</div>
+              {/* FIX: Changed 'On Call' to 'Busy' to match backend */}
+              <div className="text-2xl font-bold text-blue-600">{agentData.filter((agent) => agent.status === 'Busy').length}</div>
               <p className="text-xs text-gray-600">Currently handling calls</p>
             </CardContent>
           </Card>
         </div>
- 
+
         <Card className="bg-white shadow-lg border-0">
           <CardHeader>
             <CardTitle className="text-xl font-semibold text-gray-900">Agent Details</CardTitle>
@@ -270,5 +280,5 @@ const RealTimeAgentMetrics = () => {
     </div>
   );
 };
- 
+
 export default RealTimeAgentMetrics;

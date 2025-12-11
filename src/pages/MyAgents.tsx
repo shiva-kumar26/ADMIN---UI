@@ -78,7 +78,8 @@ const MyAgents = () => {
             return {
               id: agent.id || agent.user_id || `agent_${extension}`,
               firstname: agent.firstname || agent.fullname?.split(' ')[0] || 'Agent',
-              lastname: agent.lastname || agent.fullname?.split(' ')[1] || extension,
+              lastname: agent.lastname || agent.fullname?.split(' ')[1] || '',
+
               stationId: extension,
               status: validStatus as Agent['status'],
               inCall: !!agent.inCall,

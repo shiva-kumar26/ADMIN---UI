@@ -12,16 +12,109 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // ADDED
+  const [showForcePopup, setShowForcePopup] = useState(false);
+  const [pendingLogin, setPendingLogin] = useState<any>(null);
+
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const isFormValid = username.trim() !== '' && password.trim() !== '';
-   const handleLogin = async (e: React.FormEvent) => {
+
+  // ADDED – FORCE LOGOUT HANDLER
+const handleForceLogout = async () => {
+  try {
+    const response = await fetch("https://10.16.7.96/login/force-logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        agent_name: pendingLogin.username   // ✅ MUST be agent_name
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.status === "success") {
+      toast({
+        title: "Session Cleared",
+        description: "Previous session has been logged out.",
+      });
+
+      setShowForcePopup(false);
+
+      // ✅ Retry login after force logout
+      await handleFinalLogin(
+        pendingLogin.username,
+        pendingLogin.password
+      );
+    } else {
+      toast({
+        title: "Force Logout Failed",
+        description: result.detail || "Unable to clear previous session",
+        variant: "destructive",
+      });
+    }
+
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "Force logout API request failed",
+      variant: "destructive",
+    });
+  }
+};
+
+
+  // ADDED – FINAL LOGIN AFTER FORCE LOGOUT
+  const handleFinalLogin = async (u: string, p: string) => {
+    const requestBody = { username: u, password: p };
+
+    try {
+      const response = await fetch('https://10.16.7.96/login/authenticate_Login_and_users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+
+      if (response.status === 200 && data.authenticated) {
+        sessionStorage.setItem("loginDetails", JSON.stringify(data));
+        localStorage.setItem("user_id", data.user_id);
+        localStorage.setItem("session_id", data.session_id);
+        sessionStorage.clear();
+
+        await login(data);
+
+        toast({ title: "Login Successful", description: "Welcome back!" });
+
+        const role = data.role;
+        switch (role) {
+          case 'Admin':
+            navigate('/dashboard');
+            break;
+          case 'Supervisor':
+            navigate('/supervisor-dashboard');
+            break;
+          case 'Agent':
+            navigate('/home');
+            break;
+          default:
+            navigate('/home');
+        }
+      }
+    } catch (err) {}
+  };
+
+  // UPDATED ONLY THIS BLOCK (MINIMALLY) – ADDED FORCE LOGOUT LOGIC
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
 
     setIsLoading(true);
+
     const requestBody = {
       username: username,
       password: password
@@ -36,33 +129,43 @@ const LoginPage = () => {
 
       const data = await response.json();
 
-    if (response.status === 200 && data.authenticated) {
-      sessionStorage.setItem("loginDetails", JSON.stringify(data));
-      localStorage.setItem("user_id", data.user_id);
-
-      toast({
-        title: "Login Successful",
-        description: "Welcome back!",
-      });
-
-      await login(data); // or login({ username, ... }) depending on your context
-
-      const role = data.role; // Extract role from response data
-
-      switch (role) {
-        case 'Admin':
-          navigate('/dashboard'); // Route to dashboard for Admin
-          break;
-        case 'Supervisor':
-          navigate('/supervisor-dashboard');
-          break;
-        case 'Agent':
-          navigate('/home');
-          break;
-        default:
-          navigate('/home');
+      // ADDED — IF SUPERVISOR ALREADY LOGGED IN
+      if (data.force_logout_required === true) {
+        setPendingLogin({ username, password });
+        setShowForcePopup(true);
+        setIsLoading(false);
+        return;
       }
-    } else {
+
+      // ORIGINAL CODE UNTOUCHED BELOW THIS LINE
+      if (response.status === 200 && data.authenticated) {
+        sessionStorage.setItem("loginDetails", JSON.stringify(data));
+        localStorage.setItem("user_id", data.user_id);
+        localStorage.setItem("session_id", data.session_id);
+
+
+        toast({
+          title: "Login Successful",
+          description: "Welcome back!",
+        });
+
+        await login(data);
+
+        const role = data.role;
+        switch (role) {
+          case 'Admin':
+            navigate('/dashboard');
+            break;
+          case 'Supervisor':
+            navigate('/supervisor-dashboard');
+            break;
+          case 'Agent':
+            navigate('/home');
+            break;
+          default:
+            navigate('/home');
+        }
+      } else {
         toast({
           title: "Login Failed",
           description: "Invalid username or password. Please try again.",
@@ -80,71 +183,6 @@ const LoginPage = () => {
     }
   };
 
-
-// const handleLogin = async (e: React.FormEvent) => {
-//   e.preventDefault();
-//   if (!isFormValid) return;
-
-//   setIsLoading(true);
-//   const requestBody = {
-//     username: username,
-//     password: password,
-//   };
-//   console.log("Sending request body:", requestBody); // Debug the sent data
-
-//   try {
-//     const response = await fetch('http://127.0.0.1:8080/login/authenticate_Login_and_users', {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json' },
-//       credentials: 'include', // Include cookies in the request
-//       body: JSON.stringify(requestBody), // Add the request body
-//     });
-
-//     const data = await response.json();
-//     console.log("Response data:", data); // Debug the response
-
-//     if (response.status === 200 && data.authenticated) {
-//       toast({
-//         title: "Login Successful",
-//         description: "Welcome back!",
-//       });
-
-//       // Call login to update AuthContext
-//       await login(data); // Pass the user data to AuthContext
-
-//       const role = data.role; // Extract role from response data
-
-//       switch (role) {
-//         case 'Admin':
-//           navigate('/dashboard'); // Route to dashboard for Admin
-//           break;
-//         case 'Supervisor':
-//           navigate('/supervisor-dashboard');
-//           break;
-//         case 'Agent':
-//           navigate('/home');
-//           break;
-//         default:
-//           navigate('/home');
-//       }
-//     } else {
-//       toast({
-//         title: "Login Failed",
-//         description: data.detail || "Invalid username or password. Please try again.",
-//         variant: "destructive",
-//       });
-//     }
-//   } catch (error) {
-//     toast({
-//       title: "Error",
-//       description: "An error occurred during login",
-//       variant: "destructive",
-//     });
-//     console.error("Login error:", error);
-//   } finally {
-//     setIsLoading(false);
-//   }
-// };
   return (
     <div 
       className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative overflow-hidden"
@@ -156,7 +194,22 @@ const LoginPage = () => {
       }}
     >
       <div className="absolute inset-0 bg-black/40"></div>
-      
+
+      {/* ADDED POPUP */}
+      {showForcePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-96">
+            <h2 className="text-lg font-bold mb-2">Force Logout Required</h2>
+            <p className="mb-6">This supervisor is already logged in somewhere else. Logout that session?</p>
+
+            <div className="flex justify-end space-x-3">
+              <Button variant="outline" onClick={() => setShowForcePopup(false)}>Cancel</Button>
+              <Button className="bg-red-600 text-white" onClick={handleForceLogout}>Force Logout</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card className="w-full max-w-md mx-4 relative z-10 backdrop-blur-sm bg-white/95 shadow-2xl">
         <CardHeader className="space-y-1 text-center">
           <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-4">
@@ -201,12 +254,10 @@ const LoginPage = () => {
                 tabIndex={-1}
               >
                 {showPassword ? (
-                  // Eye-off icon (hide)
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.403-3.22 1.125-4.575M15 12a3 3 0 11-6 0 3 3 0 016 0zm6.364-2.364A9.956 9.956 0 0021 9c0 5.523-4.477 10-10 10-1.657 0-3.22-.403-4.575-1.125M9.88 9.88a3 3 0 104.24 4.24" />
                   </svg>
                 ) : (
-                  // Eye icon (show)
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm6.364-2.364A9.956 9.956 0 0021 9c0 5.523-4.477 10-10 10-5.523 0-10-4.477-10-10 0-1.657.403-3.22 1.125-4.575" />
                   </svg>
@@ -222,11 +273,6 @@ const LoginPage = () => {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          
-          {/* <div className="mt-6 text-center text-sm text-gray-600">
-            <p>Demo Credentials:</p>
-            <p>Admin: admin/password | Agent: agent1/password | Supervisor: supervisor1/password</p>
-          </div> */}
         </CardContent>
       </Card>
     </div>

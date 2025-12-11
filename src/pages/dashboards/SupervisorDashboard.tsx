@@ -171,7 +171,8 @@ const SupervisorDashboard = () => {
       setLoginLogoutData([]);
     }
   };
-
+  
+  
 
   const fetchTranscript = async (callId: string, qaMessage: string) => {
     setLoadingTranscript(true);
@@ -264,23 +265,24 @@ const SupervisorDashboard = () => {
 
 
     // ✅ FIX 1: Include contact_state in agent mapping
-    if (extensions && extensions.length > 0) {
-      const mappedAgents = await Promise.all(
-        extensions.map(async (ext: string) => {
-          const currentStatus = await getAgentStatus(ext);
-          return {
-            id: `agent_${ext}`,
-            fullname: `Agent ${ext}`,
-            extension: ext,
-            status: currentStatus || 'Logged Out',
-            contact_state: currentStatus?.toLowerCase().includes("queue")
-              ? "In a queue call"
-              : "Idle"
-          };
-        })
-      );
-      setTeamMembers(mappedAgents);
-    }
+if (extensions && extensions.length > 0) {
+  const mappedAgents = await Promise.all(
+    extensions.map(async (agent: { extension: string; full_name: string }) => {
+      const currentStatus = await getAgentStatus(agent.extension);
+
+      return {
+        id: `agent_${agent.extension}`,
+        fullname: agent.full_name,   // ✅ REAL NAME
+        extension: agent.extension,
+        status: currentStatus || 'Logged Out',
+        contact_state: currentStatus?.toLowerCase().includes("queue")
+          ? "In a queue call"
+          : "Idle"
+      };
+    })
+  );
+  setTeamMembers(mappedAgents);
+}
 
 
     await Promise.all([
@@ -320,6 +322,43 @@ const SupervisorDashboard = () => {
     initializeDashboard();
   }, [user?.user_id]);
 
+  useEffect(() => {
+  const interval = setInterval(async () => {
+    const sessionId = localStorage.getItem("session_id");
+
+    if (!sessionId) return;
+
+    try {
+      const res = await fetch("https://10.16.7.96/login/check-force-logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.force_logout === true) {
+        // ✅ CLEAR SESSION
+        localStorage.removeItem("session_id");
+        localStorage.removeItem("user_id");
+        sessionStorage.clear();
+
+        alert("You were logged out from another login");
+
+        // ✅ REDIRECT TO LOGIN
+        window.location.href = "/";
+      }
+    } catch (error) {
+      console.error("Supervisor polling error:", error);
+    }
+  }, 5000); // ✅ every 5 seconds
+
+  return () => clearInterval(interval);
+}, []);
 
   // ✅ CHANGE 2: Replace full dashboard refresh with status-only refresh
   useEffect(() => {
@@ -361,7 +400,23 @@ const SupervisorDashboard = () => {
     }
   };
 
+ const formatDateTime = (isoString: string) => {
+  if (!isoString) return "—";
 
+  const date = new Date(isoString);
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+};
+
+ 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'bg-green-100 text-green-800 border-green-200';
     if (score >= 60) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -593,7 +648,7 @@ const SupervisorDashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-gray-900">{agent.fullname}</p>
-                  <p className="text-sm text-gray-600">Ext: {agent.extension}</p>
+                  
                 </div>
                 {/* ✅ FIX 3: Show "On Call" if in queue, otherwise show status */}
                 <Badge className={`${
@@ -620,7 +675,7 @@ const SupervisorDashboard = () => {
             availableAgents.map((agent, idx) => (
               <div key={idx} className="p-4 border border-green-200 bg-green-50 rounded-lg">
                 <p className="font-semibold text-gray-900">{agent.fullname}</p>
-                <p className="text-sm text-gray-600">Extension: {agent.extension}</p>
+                
               </div>
             ))
           )}
@@ -636,7 +691,7 @@ const SupervisorDashboard = () => {
             breakAgents.map((agent, idx) => (
               <div key={idx} className="p-4 border border-orange-200 bg-orange-50 rounded-lg">
                 <p className="font-semibold text-gray-900">{agent.fullname}</p>
-                <p className="text-sm text-gray-600">Extension: {agent.extension}</p>
+              
               </div>
             ))
           )}
@@ -652,7 +707,7 @@ const SupervisorDashboard = () => {
             busyAgents.map((agent, idx) => (
               <div key={idx} className="p-4 border border-red-200 bg-red-50 rounded-lg">
                 <p className="font-semibold text-gray-900">{agent.fullname}</p>
-                <p className="text-sm text-gray-600">Extension: {agent.extension}</p>
+                
               </div>
             ))
           )}
@@ -737,19 +792,33 @@ const SupervisorDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {loginLogoutData.map((item, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium">{item.agent_name}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <Badge className="bg-green-100 text-green-800">{item.login_timestamp}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <Badge className="bg-red-100 text-red-800">{item.logout_timestamp}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-blue-600">{item.duration}</td>
-                  </tr>
-                ))}
-              </tbody>
+  {loginLogoutData.map((item, index) => (
+    <tr key={index} className="hover:bg-gray-50">
+      
+      <td className="px-4 py-3 text-sm font-medium">
+        {item.agent_name}
+      </td>
+
+      <td className="px-4 py-3 text-sm">
+        <Badge className="bg-green-100 text-green-800">
+          {formatDateTime(item.login_timestamp)}
+        </Badge>
+      </td>
+
+      <td className="px-4 py-3 text-sm">
+        <Badge className="bg-red-100 text-red-800">
+          {formatDateTime(item.logout_timestamp)}
+        </Badge>
+      </td>
+
+      <td className="px-4 py-3 text-sm font-semibold text-blue-600">
+        {item.duration}
+      </td>
+
+    </tr>
+  ))}
+</tbody>
+
             </table>
           )}
         </div>

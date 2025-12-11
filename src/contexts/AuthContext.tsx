@@ -7,14 +7,14 @@ import { KBAuthSession } from '@/config';  // <-- IMPORT ADDED
 const AuthContext = createContext<{
   authState: AuthState;
   login: (user: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   loading: boolean;
   updateUserStatus: (newStatus: string) => void;
   refreshAgents: () => Promise<void>;
 }>({
   authState: { user: null, isAuthenticated: false },
   login: () => {},
-  logout: () => {},
+   logout: async () => {},
   updateUserStatus: () => {},
   refreshAgents: async () => {},
   loading: true,
@@ -147,23 +147,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // ==================================================
   };
 
-  const logout = () => {
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-    });
-    sessionStorage.removeItem("loginDetails");
-    sessionStorage.removeItem("supervisor_extensions");
+ const logout = async () => {
+  try {
+    const userId = authState.user?.user_id;
     
-    // Clear cookie
-    document.cookie = "user-data=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax";
-    console.log("User data cleared from cookie");
+    if (!userId) {
+      console.warn("❌ No user_id found for logout");
+      performLocalLogout();
+      return;
+    }
+    
+    console.log("🔄 Calling backend logout for:", userId);
+    
+    // ✅ CALL BACKEND API
+    const response = await fetch('https://10.16.7.96/login/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
+    });
+    
+    console.log("📊 Response status:", response.status);
+    
+    if (!response.ok) {
+      console.error(`❌ Backend logout error: ${response.status}`);
+    } else {
+      const data = await response.json();
+      console.log("✅ Backend logout success:", data);
+    }
+    
+  } catch (error) {
+    console.error("❌ Error calling logout API:", error);
+  } finally {
+    // ✅ Clear frontend state
+    performLocalLogout();
+  }
+};
 
-    // ==================== CLEAR KB SESSION ====================
-    KBAuthSession.clear();
-    console.log("KB Session cleared on logout");
-    // ==================================================
-  };
+// Helper function to clear frontend state
+const performLocalLogout = () => {
+  setAuthState({
+    user: null,
+    isAuthenticated: false,
+  });
+  sessionStorage.removeItem("loginDetails");
+  sessionStorage.removeItem("supervisor_extensions");
+  
+  document.cookie = "user-data=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Lax";
+  console.log("🗑️ User data cleared from cookie");
+
+  KBAuthSession.clear();
+  console.log("🗑️ KB Session cleared on logout");
+};
+
 
   const updateUserStatus = (newStatus: string) => {
     if (authState.user) {
