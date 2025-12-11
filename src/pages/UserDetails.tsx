@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ApiService } from '@/services/api';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useGlobalUsers } from '@/contexts/GlobalUsersContext';
 
 interface ValidationErrors {
   firstname?: string;
@@ -20,7 +21,7 @@ interface ValidationErrors {
   extension?: string;
   queue?: string;
   role?: string;
-  type?:string;
+  type?: string;
   level?: string;
   position?: string;
   wrap_up_time?: string;
@@ -35,55 +36,61 @@ const UserDetails = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { users, loading: contextLoading, refreshUsers } = useGlobalUsers(); // Use context
+
   const [isEditing, setIsEditing] = useState(false);
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [queues, setQueues] = useState<string[]>([]);
-  const [supervisors, setSupervisors] = useState<DirectoryUser[]>([]);
-  const [existingUsers, setExistingUsers] = useState<DirectoryUser[]>([]);
+  // const [supervisors, setSupervisors] = useState<DirectoryUser[]>([]); // Derived from context
+  // const [existingUsers, setExistingUsers] = useState<DirectoryUser[]>([]); // Derived from context
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isValidating, setIsValidating] = useState(false);
+
+  // Derived state
+  const supervisors = users.filter(u => u.role && (Array.isArray(u.role) ? u.role.includes('Supervisor') : u.role === 'Supervisor'));
+  const existingUsers = users;
 
   useEffect(() => {
     const editMode = searchParams.get('edit') === 'true';
     setIsEditing(editMode);
-    fetchUser();
     fetchQueues();
-    fetchSupervisors();
-    fetchExistingUsers();
-  }, [id, searchParams]);
+  }, [searchParams]);
 
-  const fetchUser = async () => {
-    if (!id) return;
+  // Load user from context
+  useEffect(() => {
+    if (!contextLoading && users.length >= 0) {
+      if (!id) return;
 
-    setLoading(true);
-    try {
-      const userData = await ApiService.getUserById(Number(id));
-      if (userData) {
-        setUser(userData);
-        const roleArray = Array.isArray(userData.role) ? userData.role : userData.role ? [userData.role] : [];
+      const foundUser = users.find(u => u.directory_id === Number(id));
+
+      if (foundUser) {
+        setUser(foundUser);
+        const roleArray = Array.isArray(foundUser.role) ? foundUser.role : foundUser.role ? [foundUser.role] : [];
         setEditedUser({
-          firstname: userData.firstname || '',
-          lastname: userData.lastname || '',
-          user_id: userData.user_id || '',
-          extension: userData.extension || '',
-          password: userData.password || '',
+          firstname: foundUser.firstname || '',
+          lastname: foundUser.lastname || '',
+          user_id: foundUser.user_id || '',
+          extension: foundUser.extension || '',
+          password: foundUser.password || '',
           role: roleArray,
-          hostname: userData.hostname || '',
-          queue: userData.queue || [],
-          state: userData.state || '',
-          status: userData.status || '',
-          type: userData.type || '',
-          supervisor_reference: userData.supervisor_reference || [],
-          level: userData.level || 0,
-          position: userData.position || 0,
-          wrap_up_time: userData.wrap_up_time || 0,
-          max_no_answer: userData.max_no_answer || 0,
-          reject_delay_time: userData.reject_delay_time || 0,
-          busy_delay_time: userData.busy_delay_time || 0,
+          hostname: foundUser.hostname || '',
+          queue: foundUser.queue || [],
+          state: foundUser.state || '',
+          status: foundUser.status || '',
+          type: foundUser.type || '',
+          supervisor_reference: foundUser.supervisor_reference || [],
+          level: foundUser.level || 0,
+          position: foundUser.position || 0,
+          wrap_up_time: foundUser.wrap_up_time || 0,
+          max_no_answer: foundUser.max_no_answer || 0,
+          reject_delay_time: foundUser.reject_delay_time || 0,
+          busy_delay_time: foundUser.busy_delay_time || 0,
         });
-      } else {
+        setLoading(false);
+      } else if (!contextLoading && users.length > 0) {
+        // Only redirect if we have users loaded but didn't find this one
         toast({
           title: 'Error',
           description: 'User not found',
@@ -91,17 +98,13 @@ const UserDetails = () => {
         });
         navigate('/user-management');
       }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch user details',
-        variant: 'destructive',
-      });
-      console.error('Fetch error:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [id, users, contextLoading, navigate, toast]);
+
+
+  // Removed fetchUser, fetchSupervisors, fetchExistingUsers
+
+
 
   const fetchQueues = async () => {
     try {
@@ -110,29 +113,6 @@ const UserDetails = () => {
       setQueues(data.map((queue: { name: string }) => queue.name));
     } catch (error) {
       console.error('Failed to fetch queues:', error);
-    }
-  };
-
-  const fetchSupervisors = async () => {
-    try {
-      const response = await fetch('https://10.16.7.96/api/directory_search/');
-      const userData = await response.json();
-      const supervisorList = userData.filter(user =>
-        user.role && user.role.length > 0 && user.role[0].toLowerCase() === 'supervisor'
-      );
-      setSupervisors(supervisorList);
-    } catch (error) {
-      console.error('Failed to fetch supervisors:', error);
-    }
-  };
-
-  const fetchExistingUsers = async () => {
-    try {
-      const response = await fetch('https://10.16.7.96/api/directory_search/');
-      const userData = await response.json();
-      setExistingUsers(userData);
-    } catch (error) {
-      console.error('Failed to fetch existing users:', error);
     }
   };
 
@@ -270,7 +250,13 @@ const UserDetails = () => {
 
       const updatedUser = await ApiService.updateUser(Number(id), updateData);
       if (updatedUser) {
+        // Refresh context to get new data immediately
+        await refreshUsers();
+
+        // We can just set the user from response for immediate UI update, 
+        // but context update will eventually propagate too.
         setUser(updatedUser);
+
         setIsEditing(false);
         setErrors({});
         toast({
@@ -386,7 +372,7 @@ const UserDetails = () => {
     }));
   };
 
-  if (loading) {
+  if (contextLoading && loading) { // Use context loading too
     return (
       <div className="flex justify-center items-center h-64">
         <div className="text-lg">Loading user details...</div>
@@ -567,7 +553,7 @@ const UserDetails = () => {
             {isAgent && (
 
               <>
-              <div className="space-y-2">
+                <div className="space-y-2">
                   <Label htmlFor="supervisor">Supervisor <span className="text-red-500">*</span></Label>
                   {isEditing ? (
                     <Select
@@ -607,21 +593,21 @@ const UserDetails = () => {
                   />
                   {errors.extension && <p className="text-red-500 text-xs">{errors.extension}</p>}
                 </div>
-                  <div className="space-y-2">
-                          <Label htmlFor="type">Type <span className="text-red-500">*</span></Label>
-                          <Select value={editedUser.type}
-    onValueChange={(value) => handleInputChange('type', value)} // Use handleInputChange
-    disabled={!isEditing}>
-                            <SelectTrigger error={!!errors.type}>
-                              <SelectValue placeholder="Select callback" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="callback">callback</SelectItem>
-                              {/* <SelectItem value="10.16.7.96">10.16.7.96</SelectItem> */}
-                            </SelectContent>
-                          </Select>
-                          {errors.type && <p className="text-red-500 text-xs">{errors.type}</p>}
-                        </div>
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type <span className="text-red-500">*</span></Label>
+                  <Select value={editedUser.type}
+                    onValueChange={(value) => handleInputChange('type', value)} // Use handleInputChange
+                    disabled={!isEditing}>
+                    <SelectTrigger error={!!errors.type}>
+                      <SelectValue placeholder="Select callback" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="callback">callback</SelectItem>
+                      {/* <SelectItem value="10.16.7.96">10.16.7.96</SelectItem> */}
+                    </SelectContent>
+                  </Select>
+                  {errors.type && <p className="text-red-500 text-xs">{errors.type}</p>}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="queues">Queues <span className="text-red-500">*</span></Label>
                   {isEditing ? (
@@ -710,7 +696,7 @@ const UserDetails = () => {
                   />
                   {errors.busy_delay_time && <p className="text-red-500 text-xs">{errors.busy_delay_time}</p>}
                 </div>
-                
+
               </>
             )}
           </div>

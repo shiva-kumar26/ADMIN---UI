@@ -4,13 +4,13 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Phone, 
-  Users, 
-  Activity, 
-  TrendingUp, 
-  PhoneCall, 
-  PhoneOff, 
+import {
+  Phone,
+  Users,
+  Activity,
+  TrendingUp,
+  PhoneCall,
+  PhoneOff,
   Clock,
   CheckCircle,
   AlertTriangle,
@@ -22,55 +22,73 @@ import {
   Wifi
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
- const AdminDashboard = () => {
-  const [loading, setLoading] =useState(false)
-const [mainStats, setMainStats] = useState([
-    { 
-      title: 'Total Users', 
-      value: '0', 
-      icon: Users, 
-      trend: 'N/A', 
+import { useGlobalUsers } from '@/contexts/GlobalUsersContext'; // Import hook
+
+const AdminDashboard = () => {
+  // Consume context
+  const { users, loading: usersLoading, error, lastUpdated } = useGlobalUsers();
+
+  const [loading, setLoading] = useState(false)
+  const [mainStats, setMainStats] = useState([
+    {
+      title: 'Total Users',
+      value: '0',
+      icon: Users,
+      trend: 'N/A',
       color: 'from-blue-500 to-blue-600',
       description: 'Registered users'
     },
-    { 
-      title: 'Available Agents', 
-      value: '0', 
-      icon: UserCheck, 
-      trend: 'N/A', 
+    {
+      title: 'Available Agents',
+      value: '0',
+      icon: UserCheck,
+      trend: 'N/A',
       color: 'from-green-500 to-green-600',
       description: 'Available now'
     },
-    { 
-      title: 'Queue Count', 
-      value: '0', 
-      icon: MessageSquare, 
-      trend: '0%', 
+    {
+      title: 'Queue Count',
+      value: '0',
+      icon: MessageSquare,
+      trend: '0%',
       color: 'from-orange-500 to-orange-600',
       description: 'Active queues'
     },
-    { 
-      title: 'Templates', 
-      value: '42', 
-      icon: CheckCircle, 
-      trend: '+5%', 
+    {
+      title: 'Templates',
+      value: '42',
+      icon: CheckCircle,
+      trend: '+5%',
       color: 'from-red-500 to-red-600',
       description: '5 updated today'
     },
   ]);
-useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch users
-        const userResponse = await fetch('https://10.16.7.96/api/directory_search/');
-        if (!userResponse.ok) {
-          throw new Error(`User API error! Status: ${userResponse.status}`);
-        }
-        const userData = await userResponse.json();
-        const totalUsers = userData.length;
-        const availableAgents = userData.filter((user: { status: string }) => user.status === 'Available').length;
 
+  // Update stats when `users` changes
+  useEffect(() => {
+    if (users) {
+      const totalUsers = users.length;
+      const availableAgents = users.filter((user) => user.status === 'Available').length;
+      setMainStats((prevStats) => [
+        {
+          ...prevStats[0],
+          value: totalUsers.toString(),
+          trend: prevStats[0].trend
+        },
+        {
+          ...prevStats[1],
+          value: availableAgents.toString(),
+          trend: prevStats[1].trend
+        },
+        ...prevStats.slice(2)
+      ]);
+    }
+  }, [users]);
+
+  useEffect(() => {
+    const fetchQueueData = async () => {
+      // setLoading(true); // Don't block full UI on queue fetch if users are already there, or handle properly
+      try {
         // Fetch queues
         const queueResponse = await fetch('https://10.16.7.96/api/api/queue');
         if (!queueResponse.ok) {
@@ -81,22 +99,14 @@ useEffect(() => {
 
         // Update mainStats with fetched data
         setMainStats((prevStats) => [
-          { 
-            ...prevStats[0], 
-            value: totalUsers.toString(), 
-            trend: prevStats[0].trend 
+          prevStats[0], // Users
+          prevStats[1], // Agents
+          {
+            ...prevStats[2],
+            value: queueCount.toString(),
+            trend: prevStats[2].trend
           },
-          { 
-            ...prevStats[1], 
-            value: availableAgents.toString(), 
-            trend: prevStats[1].trend 
-          },
-          { 
-            ...prevStats[2], 
-            value: queueCount.toString(), 
-            trend: prevStats[2].trend 
-          },
-          ...prevStats.slice(3), // Keep Templates stat unchanged
+          prevStats[3], // Templates
         ]);
       } catch (error: any) {
         console.error('Fetch error:', error);
@@ -110,9 +120,9 @@ useEffect(() => {
       }
     };
 
-    fetchData();
+    fetchQueueData();
   }, []);
-  
+
 
   const systemMetrics = [
     { label: 'CPU Usage', value: '30%', status: 'good' },
@@ -157,15 +167,37 @@ useEffect(() => {
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
           {/* <p className="text-muted-foreground mt-1">Monitor your system performance and activity</p> */}
         </div>
-        {/* <div className="flex items-center space-x-4">
-          <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
-            <Wifi className="w-3 h-3 mr-1" />
-            System Online
+        <div className="flex items-center space-x-4">
+          <Badge
+            variant="secondary"
+            className={`${error
+              ? 'bg-red-100 text-red-800 border-red-200'
+              : lastUpdated
+                ? 'bg-blue-50 text-blue-700 border-blue-200' // Matches the light blue style in image
+                : 'bg-gray-100 text-gray-800 border-gray-200'
+              } px-3 py-1 flex items-center gap-2`}
+          >
+            <div className={`w-2 h-2 rounded-full ${error
+              ? 'bg-red-500'
+              : lastUpdated
+                ? 'bg-green-500 animate-pulse' // Green dot for live
+                : 'bg-gray-500'
+              }`} />
+
+            <span className="font-medium">
+              {error ? 'Error' : 'Live'}
+            </span>
+
+            {lastUpdated && !error && (
+              <span className="ml-1 font-mono">
+                {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase()}
+              </span>
+            )}
           </Badge>
-          <Badge variant="outline" className="text-blue-600 border-blue-200">
+          {/* <Badge variant="outline" className="text-blue-600 border-blue-200">
             Last updated: 2 min ago
-          </Badge>
-        </div> */}
+          </Badge> */}
+        </div>
       </div>
 
       {/* Main Stats Grid */}
@@ -196,7 +228,7 @@ useEffect(() => {
         })}
       </div>
 
-    
+
       {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       
         <Card className="shadow-sm">

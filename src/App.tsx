@@ -43,6 +43,7 @@ import IVRFlowDesignerWithProvider from "./pages/IVRFlowDesignerWithProvider";
 import KnowledgeBase from './pages/KnowledgeBase';
 import RecordingsPage from './pages/HistoricalMetrics/Recordings/recordingspage';
 import QualityAnalyzerPage from './pages/HistoricalMetrics/QualityAnalyzer/QualityAnalyzerPage';
+import { GlobalUsersProvider } from './contexts/GlobalUsersContext';
 
 // In your routes:
 <Route path="/quality-analyzer" element={<QualityAnalyzerPage />} />
@@ -85,10 +86,10 @@ const AppRoutes = () => {
             ? authState.user.role === 'Admin'
               ? <Navigate to="/dashboard" replace />
               : authState.user.role === 'Supervisor'
-              ? <Navigate to="/supervisor-dashboard" replace />
-              : authState.user.role === 'Agent'
-              ? <Navigate to="/home" replace />
-              : <Navigate to="/dashboard" replace />
+                ? <Navigate to="/supervisor-dashboard" replace />
+                : authState.user.role === 'Agent'
+                  ? <Navigate to="/home" replace />
+                  : <Navigate to="/dashboard" replace />
             : <LoginPage />
         }
       />
@@ -107,7 +108,7 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['Admin']}>
             <DashboardLayout>
-              <UserManagement /> 
+              <UserManagement />
             </DashboardLayout>
           </ProtectedRoute>
         }
@@ -132,7 +133,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      
+
       <Route
         path="/supervisor-dashboard"
         element={
@@ -235,18 +236,18 @@ const AppRoutes = () => {
               <RecordingsPage />
             </DashboardLayout>
           </ProtectedRoute>
-       }
+        }
       />
       <Route
-  path="/quality-analyzer"
-  element={
-    <ProtectedRoute allowedRoles={['Supervisor', 'Admin']}>
-      <DashboardLayout>
-        <QualityAnalyzerPage />
-      </DashboardLayout>
-    </ProtectedRoute>
-  }
-/>
+        path="/quality-analyzer"
+        element={
+          <ProtectedRoute allowedRoles={['Supervisor', 'Admin']}>
+            <DashboardLayout>
+              <QualityAnalyzerPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/queues"
         element={
@@ -378,15 +379,15 @@ const AppRoutes = () => {
         }
       />
       <Route
-  path="/knowledge-base"
-  element={
-    <ProtectedRoute>
-      <DashboardLayout>
-        <KnowledgeBase />
-      </DashboardLayout>
-    </ProtectedRoute>
-  }
-/>
+        path="/knowledge-base"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <KnowledgeBase />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
 
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -401,9 +402,11 @@ const App = () => (
       <AuthProvider>
         <MetricsCountsProvider>
           <RealtimeMetricsProvider>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
+            <GlobalUsersProvider>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </GlobalUsersProvider>
           </RealtimeMetricsProvider>
         </MetricsCountsProvider>
       </AuthProvider>
