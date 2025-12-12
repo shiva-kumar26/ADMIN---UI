@@ -18,7 +18,7 @@ export default function KnowledgeBase() {
       <div className="mb-4 p-3 bg-gray-50 rounded-lg">
         <p className="text-sm text-gray-600 mb-1">
           {isAdminUser ? (
-            <span>👑 <strong className="font-semibold">Admin Mode</strong> - Your documents can be made accessible to all agents</span>
+            <span><strong className="font-semibold">Admin Mode</strong> - Your documents can be made accessible to all agents</span>
           ) : (
             <span>👤 <strong className="font-semibold">Agent Mode</strong> - View your documents and global knowledge</span>
           )}
@@ -52,17 +52,17 @@ export default function KnowledgeBase() {
         <ul className="space-y-2 text-sm text-gray-700">
           {isAdminUser ? (
             <>
-              <li><strong>👑 As Admin:</strong> You can upload documents and mark them as "Global"</li>
-              <li><strong>🌍 Global Documents:</strong> Will be accessible to ALL agents for their chatbot queries</li>
-              <li><strong>🔒 Private Documents:</strong> Only you can access these documents</li>
-              <li><strong>💡 Tip:</strong> Use global documents for company policies, product manuals, etc.</li>
+              <li><strong>As Admin:</strong> You can upload documents and mark them as "Global"</li>
+              <li><strong>Global Documents:</strong> Will be accessible to ALL agents for their chatbot queries</li>
+              <li><strong>Private Documents:</strong> Only you can access these documents</li>
+              <li><strong>Tip:</strong> Use global documents for company policies, product manuals, etc.</li>
             </>
           ) : (
             <>
-              <li><strong>👤 Your Documents:</strong> Personal knowledge base for your queries</li>
-              <li><strong>🌍 Global Documents:</strong> Company-wide knowledge uploaded by admins</li>
-              <li><strong>🤖 Chatbot:</strong> Has access to both your documents and global documents</li>
-              <li><strong>📝 Note:</strong> You cannot delete or modify global documents</li>
+              <li><strong>Your Documents:</strong> Personal knowledge base for your queries</li>
+              <li><strong>Global Documents:</strong> Company-wide knowledge uploaded by admins</li>
+              <li><strong>Chatbot:</strong> Has access to both your documents and global documents</li>
+              <li><strong>Note:</strong> You cannot delete or modify global documents</li>
             </>
           )}
         </ul>
@@ -76,9 +76,10 @@ export default function KnowledgeBase() {
       </button>
 
       {isChatOpen && (
-        <div className="fixed top-0 right-0 h-full w-96 bg-gray-100 shadow-lg z-50">
-          <Chatbot onClose={() => setIsChatOpen(false)} />
-        </div>
+        // <div className="fixed top-0 right-0 h-full w-96 bg-gray-100 shadow-lg z-50">
+        //   <Chatbot onClose={() => setIsChatOpen(false)} />
+        // </div>
+        <Chatbot onClose={() => setIsChatOpen(false)} />
       )}
     </div>
   );

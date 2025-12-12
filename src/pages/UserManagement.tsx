@@ -28,7 +28,35 @@ const UserManagement = () => {
 
   // const [users, setUsers] = useState<DirectoryUser[]>([]);
   // const [loading, setLoading] = useState(true);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(8);
+  const [realtimeStatuses, setRealtimeStatuses] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchRealtimeStatus = async () => {
+      try {
+        const response = await fetch('http://10.16.7.91:5001/realtime_agents');
+        if (response.ok) {
+          const data = await response.json();
+          const statusMap: Record<string, string> = {};
+          if (Array.isArray(data)) {
+            data.forEach((agent: any) => {
+              if (agent.Extension) {
+                statusMap[agent.Extension] = agent.status;
+              }
+            });
+          }
+          setRealtimeStatuses(statusMap);
+          console.log(statusMap);
+        }
+      } catch (error) {
+        console.error('Failed to fetch realtime agent status', error);
+      }
+    };
+
+    fetchRealtimeStatus();
+    const interval = setInterval(fetchRealtimeStatus, 5000); // Poll every 5s
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -47,9 +75,10 @@ const UserManagement = () => {
     const userRole = user.role.length > 0 ? user.role[0].toLowerCase() : '';
     const matchesRole = roleFilter === 'All Roles' || userRole === roleFilter.toLowerCase();
 
+    const currentStatus = realtimeStatuses[user.extension] || '-';
     const matchesStatus =
       statusFilter === 'All Status' ||
-      (user.status?.toLowerCase?.() || '') === statusFilter.toLowerCase();
+      (currentStatus.toLowerCase() === statusFilter.toLowerCase());
     return matchesSearch && matchesRole && matchesStatus;
   });
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -127,15 +156,18 @@ const UserManagement = () => {
   };
   const getStatusBadge = (status: string) => {
     if (!status) {
-      return <Badge className="bg-white-100 text-white-800">-</Badge>;
+      return <Badge className="bg-gray-100 text-gray-800">-</Badge>;
     }
     if (status === 'Available') {
       return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{status}</Badge>;
     } else if (status === 'Logged Out') {
       return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{status}</Badge>;
     }
-    else if (status === 'On Break') {
+    else if (status === 'Busy') {
       return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{status}</Badge>;
+    }
+    else if (status === 'On Break') {
+      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">{status}</Badge>;
     }
     else if (status === 'Available (On Demand)') {
       return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{status}</Badge>;
@@ -155,13 +187,11 @@ const UserManagement = () => {
 
   return (
     <>
-      <div className="flex flex-col items-center mt-2">
-        <div
-          className={`h-[88vh] flex flex-col mx-1 mb-2 ${!isSidebarOpen ? 'w-full ml-10' : 'max-w-[1230px]'}`}
-        >
+      <div className="p-6 mt-8 space-y-4">
+        <div className={`flex flex-col mx-1 mb-2 ${!isSidebarOpen ? 'w-full ml-10' : 'w-full'}`}>
           <div>
             <div className="flex items-center justify-between">
-              <h4 className="font-bold">Users List</h4>
+              <h1 className="text-3xl font-bold text-foreground">Users List</h1>
               <Button
                 onClick={() => navigate('/user-creation')}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg"
@@ -207,68 +237,65 @@ const UserManagement = () => {
               </div>
             </div>
           </div>
-          <div className="relative overflow-auto scrollbar-hide mt-4">
-            <div className="min-w-full overflow-x-auto scrollbar-hide">
+          <div className="mt-4 border rounded-md">
+            <div className="w-full">
               <div className="flex flex-col justify-between">
-                <Table
-                  className="min-w-full table-auto scrollbar-hide px-2 border-600"
-                  style={{ height: 'calc(88vh - 120px)' }} // Fixed height based on parent container
-                >
+                <Table className="w-full">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-white">
                       <TableHead
                         onClick={() => handleSort('firstname')}
-                        className="min-w-[140px] px-4 py-1 bg-gray-50 cursor-pointer text-black"
+                        className="px-4 py-1 bg-gray-50 cursor-pointer text-black"
                       >
                         <div className="flex items-center gap-2">
                           First Name <ArrowUpDown className="w-4 h-4" />
                         </div>
                       </TableHead>
-                      <TableHead className="min-w-[120px] text-black">Last Name</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Host Name</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Extension</TableHead>
-                      <TableHead className="min-w-[120px] text-black">User Name</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Role</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Queue Name</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Status</TableHead>
-                      <TableHead className="min-w-[120px] text-black">State</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Level</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Position</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Contact</TableHead>
-                      <TableHead className="min-w-[120px] text-center text-black">Actions</TableHead>
+                      <TableHead className="text-black">Last Name</TableHead>
+                      <TableHead className="text-black">Host Name</TableHead>
+                      <TableHead className="text-black">Extension</TableHead>
+                      <TableHead className="text-black">User Name</TableHead>
+                      <TableHead className="text-black">Role</TableHead>
+                      <TableHead className="text-black">Queue Name</TableHead>
+                      <TableHead className="text-black">Status</TableHead>
+                      {/* <TableHead className="text-black">State</TableHead> */}
+                      <TableHead className="text-black">Level</TableHead>
+                      <TableHead className="text-black">Position</TableHead>
+                      <TableHead className="text-black">Contact</TableHead>
+                      {/* <TableHead className="text-center text-black">Actions</TableHead> */}
                     </TableRow>
                   </TableHeader>
 
-                  <TableBody className="overflow-y-auto" style={{ height: 'calc(88vh - 160px)' }}>
+                  <TableBody>
                     {paginatedUsers.map((user) => (
                       <TableRow
                         key={user.directory_id}
                         className="hover:bg-gray-50 cursor-pointer h-[50px] border-b border-gray-200"
                         onDoubleClick={() => handleRowDoubleClick(user.directory_id)}
                       >
-                        <TableCell className="min-w-[120px] px-4 py-2 font-medium">{user.firstname}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{user.lastname}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{user.hostname || '-'}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{user.extension || '-'}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{user.user_id}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">
+                        <TableCell className="px-4 py-2 font-medium">{user.firstname}</TableCell>
+                        <TableCell className="px-3 py-2">{user.lastname}</TableCell>
+                        <TableCell className="px-3 py-2">{user.hostname || '-'}</TableCell>
+                        <TableCell className="px-3 py-2">{user.extension || '-'}</TableCell>
+                        <TableCell className="px-3 py-2">{user.user_id}</TableCell>
+                        <TableCell className="px-3 py-2">
                           <Badge className={getRoleBadge(user.role)}>
                             {Array.isArray(user.role) && user.role.length > 0
                               ? user.role.join(', ')
                               : 'User'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">
+                        <TableCell className="px-3 py-2">
                           {Array.isArray(user.queue) && user.queue.length > 0
                             ? user.queue.join(', ')
                             : '-'}
                         </TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{getStatusBadge(user.status)}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{user.state}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{user.level || '-'}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{user.position || '-'}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">{user.contact || '-'}</TableCell>
-                        <TableCell className="min-w-[120px] px-3 py-2">
+                        <TableCell className="px-3 py-2">{getStatusBadge(realtimeStatuses[user.extension] || '-')}</TableCell>
+                        {/* <TableCell className="px-3 py-2">{user.state}</TableCell> */}
+                        <TableCell className="px-3 py-2">{user.level || '-'}</TableCell>
+                        <TableCell className="px-3 py-2">{user.position || '-'}</TableCell>
+                        {/* <TableCell className="px-3 py-2">{user.contact || '-'}</TableCell> */}
+                        <TableCell className="px-3 py-2">
                           <div className="flex space-x-2 justify-center">
                             <Button
                               size="sm"
