@@ -61,6 +61,7 @@ const CdrReports = () => {
     start_time: string | null;
     end_time: string | null;
     billsec: number | null;
+    hangup_cause: string | null;
   }
 
   // CDR Reports API integration

@@ -1,6 +1,3 @@
-
-
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,140 +21,316 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { useGlobalUsers } from '@/contexts/GlobalUsersContext'; // Import hook
 
+import { useNavigate } from 'react-router-dom';
+import InteractiveMetricCard, { DetailItem } from '@/components/dashboard/InteractiveMetricCard';
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'success': return 'bg-green-500';
+    case 'warning': return 'bg-yellow-500';
+    case 'info': return 'bg-blue-500';
+    case 'error': return 'bg-red-500';
+    default: return 'bg-gray-500';
+  }
+};
+
 const AdminDashboard = () => {
   // Consume context
   const { users, loading: usersLoading, error, lastUpdated } = useGlobalUsers();
 
-  const [loading, setLoading] = useState(false)
-  const [mainStats, setMainStats] = useState([
-    {
-      title: 'Total Users',
-      value: '0',
-      icon: Users,
-      trend: 'N/A',
-      color: 'from-blue-500 to-blue-600',
-      description: 'Registered users'
-    },
-    {
-      title: 'Available Agents',
-      value: '0',
-      icon: UserCheck,
-      trend: 'N/A',
-      color: 'from-green-500 to-green-600',
-      description: 'Available now'
-    },
-    {
-      title: 'Queue Count',
-      value: '0',
-      icon: MessageSquare,
-      trend: '0%',
-      color: 'from-orange-500 to-orange-600',
-      description: 'Active queues'
-    },
-    {
-      title: 'Templates',
-      value: '42',
-      icon: CheckCircle,
-      trend: '+5%',
-      color: 'from-red-500 to-red-600',
-      description: '5 updated today'
-    },
-  ]);
+  const [loading, setLoading] = useState(false);
 
-  // Update stats when `users` changes
+  // State for metrics
+  const [totalUsersDetails, setTotalUsersDetails] = useState<DetailItem[]>([]);
+  const [availableAgentsDetails, setAvailableAgentsDetails] = useState<DetailItem[]>([]);
+  const [queueCount, setQueueCount] = useState('0');
+  const [onCallDetails, setOnCallDetails] = useState<DetailItem[]>([]);
+
+  // Calculate metrics when users change
   useEffect(() => {
     if (users) {
-      const totalUsers = users.length;
-      const availableAgents = users.filter((user) => user.status === 'Available').length;
-      setMainStats((prevStats) => [
-        {
-          ...prevStats[0],
-          value: totalUsers.toString(),
-          trend: prevStats[0].trend
-        },
-        {
-          ...prevStats[1],
-          value: availableAgents.toString(),
-          trend: prevStats[1].trend
-        },
-        ...prevStats.slice(2)
+      // --- Total Users Breakdown ---
+      const adminUsers = users.filter(u => u.role && (Array.isArray(u.role) ? u.role.includes('Admin') : u.role === 'Admin'));
+      const supervisorUsers = users.filter(u => u.role && (Array.isArray(u.role) ? u.role.includes('Supervisor') : u.role === 'Supervisor'));
+      const agentUsers = users.filter(u => u.role && (Array.isArray(u.role) ? u.role.includes('Agent') : u.role === 'Agent'));
+
+      const getQueueBreakdown = (userList: typeof users) => {
+        const queueCounts: Record<string, number> = {};
+        userList.forEach(u => {
+          if (u.queue && u.queue.length > 0) {
+            u.queue.forEach(q => {
+              queueCounts[q] = (queueCounts[q] || 0) + 1;
+            });
+          } else {
+            queueCounts['No Queue'] = (queueCounts['No Queue'] || 0) + 1;
+          }
+        });
+        return Object.entries(queueCounts)
+          .map(([q, count]) => ({ label: q, value: count, color: 'text-muted-foreground' }))
+          .sort((a, b) => b.value - a.value);
+      };
+
+      setTotalUsersDetails([
+        { label: 'Agents', value: agentUsers.length, subItems: getQueueBreakdown(agentUsers) },
+        { label: 'Supervisors', value: supervisorUsers.length, subItems: getQueueBreakdown(supervisorUsers) },
+        { label: 'Admins', value: adminUsers.length, subItems: getQueueBreakdown(adminUsers) },
       ]);
+
+      // --- Available Agents Breakdown (per Queue) ---
+      // Get unique queues
+      const allQueues = Array.from(new Set(users.flatMap(u => u.queue || []))).filter(Boolean).sort();
+
+      const availableStats = allQueues.map(q => {
+        const queueUsers = users.filter(u => u.queue && u.queue.includes(q));
+        const available = queueUsers.filter(u => u.status === 'Available').length;
+        const loggedOut = queueUsers.filter(u => u.status === 'Logged Out').length;
+        const onBreak = queueUsers.filter(u => u.status && u.status.includes('Break')).length;
+
+        return {
+          label: q,
+          value: available,
+          subItems: [
+            { label: 'Available', value: available, color: 'text-green-600' },
+            { label: 'Logged Out', value: loggedOut, color: 'text-gray-500' },
+            { label: 'On Break', value: onBreak, color: 'text-yellow-600' }
+          ]
+        };
+      });
+
+      // Filter to show only queues with activity or just top ones, or all. All is safer for completeness.
+      setAvailableAgentsDetails(availableStats);
+
+
+      // --- On-Call Agents Breakdown (per Queue) ---
+      // Assuming 'On Call' status or check other indicators. 
+      // If exact status unknown, we check for 'Talking' or 'On Call'.
+      const onCallStats = allQueues.map(q => {
+        const queueUsers = users.filter(u => u.queue && u.queue.includes(q));
+        const inCall = queueUsers.filter(u => u.status === 'On Call' || u.status === 'Talking' || (u.state && u.state === 'In Call')).length; // Adjust based on actual API values
+
+        return {
+          label: q,
+          value: inCall
+        };
+      });
+
+      // Only show queues with active calls to reduce clutter? Or all.
+      // Let's filter to show only if > 0 to be cleaner, or all.
+      setOnCallDetails(onCallStats);
     }
   }, [users]);
 
   useEffect(() => {
     const fetchQueueData = async () => {
-      // setLoading(true); // Don't block full UI on queue fetch if users are already there, or handle properly
       try {
-        // Fetch queues
         const queueResponse = await fetch('https://10.16.7.96/api/api/queue');
         if (!queueResponse.ok) {
-          throw new Error(`Queue API error! Status: ${queueResponse.status}`);
+          // Silent fail or minimal log
+          console.warn('Queue fetch failed');
+          return;
         }
         const queueData = await queueResponse.json();
-        const queueCount = queueData.length;
-
-        // Update mainStats with fetched data
-        setMainStats((prevStats) => [
-          prevStats[0], // Users
-          prevStats[1], // Agents
-          {
-            ...prevStats[2],
-            value: queueCount.toString(),
-            trend: prevStats[2].trend
-          },
-          prevStats[3], // Templates
-        ]);
-      } catch (error: any) {
-        console.error('Fetch error:', error);
-        toast({
-          title: 'Error',
-          description: `Failed to fetch data: ${error.message}`,
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
+        setQueueCount(queueData.length.toString());
+      } catch (error) {
+        // console.error(error);
       }
     };
-
     fetchQueueData();
   }, []);
 
+  // Fetch Realtime Data (Agents & Queues)
+  const [realtimeQueueData, setRealtimeQueueData] = useState<any[]>([]);
+  const [realtimeAgentData, setRealtimeAgentData] = useState<any[]>([]);
 
-  const systemMetrics = [
-    { label: 'CPU Usage', value: '30%', status: 'good' },
-    { label: 'Memory', value: '69%', status: 'warning' },
-    { label: 'Network', value: 'Online', status: 'good' }
-  ];
+  useEffect(() => {
+    const fetchRealtimeData = async () => {
+      try {
+        const [queueRes, agentRes] = await Promise.all([
+          fetch('http://10.16.7.91:5001/realtime_queues'),
+          fetch('http://10.16.7.91:5001/realtime_agents')
+        ]);
 
-  const agentPerformance = [
-    { label: 'On Break', value: '0', icon: Clock },
-    { label: 'Avg Handle Time', value: '208s', icon: BarChart3 },
-    { label: 'Longest Idle', value: 'Agent 4', icon: Users }
-  ];
+        if (queueRes.ok) {
+          const qData = await queueRes.json();
+          setRealtimeQueueData(qData || []);
+        }
+        if (agentRes.ok) {
+          const aData = await agentRes.json();
+          setRealtimeAgentData(aData || []);
+        }
+      } catch (error) {
+        console.error('Error fetching realtime metrics:', error);
+      }
+    };
 
-  const liveActivities = [
-    { message: 'Call answered by Agent 3', status: 'success', time: '2 min ago' },
-    { message: 'New call in Support queue', status: 'info', time: '5 min ago' },
-    { message: 'Agent 7 went on break', status: 'warning', time: '8 min ago' },
-    { message: 'Queue timeout resolved', status: 'success', time: '12 min ago' }
-  ];
+    fetchRealtimeData();
+    const interval = setInterval(fetchRealtimeData, 5000); // Poll every 5s
+    return () => clearInterval(interval);
+  }, []);
 
-  const systemStatus = [
-    { service: 'Server Status', status: 'Online', color: 'text-green-600' },
-    { service: 'Database', status: 'Connected', color: 'text-green-600' },
-    { service: 'Queue Processing', status: 'Active', color: 'text-green-600' }
-  ];
+  // Fetch CDR Data (Daily Metrics)
+  const [cdrData, setCdrData] = useState<any[]>([]);
+  const [cdrLoading, setCdrLoading] = useState(false);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success': return 'bg-green-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'info': return 'bg-blue-500';
-      case 'error': return 'bg-red-500';
-      default: return 'bg-gray-500';
+  useEffect(() => {
+    const fetchCdrData = async () => {
+      setCdrLoading(true);
+      try {
+        // Using Asia/Kolkata timezone as requested
+        const response = await fetch('http://10.16.7.96:8001/cdr-reports/today?user_time_zone=Asia%2FKolkata');
+        if (response.ok) {
+          const res = await response.json();
+          setCdrData(res.data || []);
+        } else {
+          console.warn("Failed to fetch CDR data");
+        }
+      } catch (error) {
+        console.error('Error fetching CDR data:', error);
+      } finally {
+        setCdrLoading(false);
+      }
+    };
+
+    fetchCdrData();
+    // Refresh CDR data less frequently or on demand? Let's keep it once on mount for now as it 'Today' snapshot, or poll slower.
+    const interval = setInterval(fetchCdrData, 60000); // Refresh every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  // --- Realtime Calculations (for Live Cards) ---
+  const totalWaiting = realtimeQueueData.reduce((acc, q) => acc + (q.calls_waiting || 0), 0);
+
+  // --- CDR Calculations (for Daily/Historical Cards) ---
+  const filteredCdr = cdrData; // Can filter more if needed
+  const totalCdrCalls = filteredCdr.length;
+
+  // Breakdown based on hangup_cause
+  // Abandoned: 'ORIGINATOR_CANCEL' (Customer hung up before answer)
+  // Missed: 'NO_ANSWER' (Agent didn't answer)
+  // Answered: Everything else (Total - Abandoned - Missed)
+  const abandonedCdr = filteredCdr.filter(c => c.hangup_cause === 'ORIGINATOR_CANCEL');
+  const missedCdr = filteredCdr.filter(c => c.hangup_cause === 'NO_ANSWER');
+  // For answered, we can either subtract or filter 'NORMAL_CLEARING' etc. 
+  // Let's use subtraction to ensure 100% breakdown coverage + consistency with Total.
+  const answeredCount = totalCdrCalls - abandonedCdr.length - missedCdr.length;
+
+  // Active Queues (Unique queues in today's CDR)
+  const activeQueuesSet = new Set(filteredCdr.map(c => c.queue).filter(Boolean));
+  const activeQueuesCount = activeQueuesSet.size.toString();
+  const activeQueuesList = Array.from(activeQueuesSet).map(q => ({ label: q as string, value: 0 })); // Value 0 just for list listing? Or count calls per queue.
+  // Group calls by queue for breakdowns
+  const callsByQueue = filteredCdr.reduce((acc: any, c: any) => {
+    const q = c.queue || 'Unknown';
+    acc[q] = (acc[q] || 0) + 1;
+    return acc;
+  }, {});
+  const answeredByQueue = filteredCdr.reduce((acc: any, c: any) => {
+    if (c.hangup_cause !== 'ORIGINATOR_CANCEL' && c.hangup_cause !== 'NO_ANSWER') {
+      const q = c.queue || 'Unknown';
+      acc[q] = (acc[q] || 0) + 1;
     }
-  };
+    return acc;
+  }, {});
+  const missedByQueue = missedCdr.reduce((acc: any, c: any) => {
+    const q = c.queue || 'Unknown';
+    acc[q] = (acc[q] || 0) + 1;
+    return acc;
+  }, {});
+  const abandonedByQueue = abandonedCdr.reduce((acc: any, c: any) => {
+    const q = c.queue || 'Unknown';
+    acc[q] = (acc[q] || 0) + 1;
+    return acc;
+  }, {});
+
+  const metricCards = [
+    {
+      title: 'Total Users',
+      value: users.length.toString(),
+      icon: Users,
+      trend: 'Registered',
+      color: 'from-blue-800 to-blue-900',
+      description: 'Click for role breakdown',
+      details: totalUsersDetails
+    },
+    {
+      title: 'Available Agents',
+      value: users.filter(u => u.status === 'Available').length.toString(),
+      icon: UserCheck,
+      trend: 'Online Now',
+      color: 'from-blue-800 to-blue-900',
+      description: 'Click for queue details',
+      details: availableAgentsDetails
+    },
+    {
+      title: 'Call Volume Today',
+      value: totalCdrCalls.toString(),
+      icon: Phone,
+      trend: 'Daily Total',
+      color: 'from-blue-800 to-blue-900',
+      description: 'Answered, Missed, Abandoned',
+      details: [
+        { label: 'Answered', value: answeredCount, subItems: Object.entries(answeredByQueue).map(([k, v]) => ({ label: k, value: v as number })).sort((a, b) => b.value - a.value) },
+        { label: 'Missed', value: missedCdr.length, subItems: Object.entries(missedByQueue).map(([k, v]) => ({ label: k, value: v as number })).sort((a, b) => b.value - a.value) },
+        { label: 'Abandoned', value: abandonedCdr.length, subItems: Object.entries(abandonedByQueue).map(([k, v]) => ({ label: k, value: v as number })).sort((a, b) => b.value - a.value) }
+      ]
+    },
+    {
+      title: 'Abandoned Calls',
+      value: abandonedCdr.length.toString(),
+      icon: PhoneOff,
+      trend: 'Customer Churn',
+      color: 'from-blue-800 to-blue-900',
+      description: 'Customer hung up',
+      details: Object.entries(abandonedByQueue).map(([k, v]) => ({ label: k, value: v as number })).sort((a, b) => b.value - a.value)
+    },
+    {
+      title: 'Waiting Customers',
+      value: totalWaiting.toString(),
+      icon: Clock,
+      trend: 'Live Queue',
+      color: 'from-blue-800 to-blue-900',
+      description: 'Currently in queue',
+      details: realtimeQueueData.map(q => ({ label: q.queue_name, value: q.calls_waiting })).sort((a, b) => b.value - a.value)
+    },
+    {
+      title: 'Active Queues',
+      value: activeQueuesCount,
+      icon: MessageSquare,
+      trend: 'Activity Today',
+      color: 'from-blue-800 to-blue-900',
+      description: 'Queues with traffic today',
+      details: Object.entries(callsByQueue).map(([k, v]) => ({ label: k, value: v as number })).sort((a, b) => b.value - a.value)
+    },
+    {
+      title: 'Total Active Calls',
+      value: (realtimeAgentData.filter(a => a.status === 'Busy').length + totalWaiting).toString(),
+      icon: PhoneCall,
+      trend: 'Happening Now',
+      color: 'from-blue-800 to-blue-900',
+      description: 'Talking + Waiting in Queue',
+      details: [
+        { label: 'Talking', value: realtimeAgentData.filter(a => a.status === 'Busy').length, subItems: realtimeAgentData.filter(a => a.status === 'Busy').map(a => ({ label: a.agent_name, value: 1 })) },
+        { label: 'Waiting', value: totalWaiting, subItems: realtimeQueueData.filter(q => q.calls_waiting > 0).map(q => ({ label: q.queue_name, value: q.calls_waiting })) }
+      ]
+    },
+    {
+      title: 'Agent Utilization',
+      value: (() => {
+        const loggedInAgentsCount = users.filter(u => u.role && (Array.isArray(u.role) ? u.role.includes('Agent') : u.role === 'Agent') && u.status !== 'Logged Out').length;
+        const busyAgentsCount = realtimeAgentData.filter(a => a.status === 'Busy').length;
+        if (loggedInAgentsCount === 0) return '0%';
+        return `${Math.round((busyAgentsCount / loggedInAgentsCount) * 100)}%`;
+      })(),
+      icon: Activity,
+      trend: 'Efficiency',
+      color: 'from-blue-800 to-blue-900',
+      description: 'Agents on call / logged in',
+      details: [
+        { label: 'Logged In Agents', value: users.filter(u => u.role && (Array.isArray(u.role) ? u.role.includes('Agent') : u.role === 'Agent') && u.status !== 'Logged Out').length },
+        { label: 'Busy Agents', value: realtimeAgentData.filter(a => a.status === 'Busy').length }
+      ]
+    },
+  ];
 
   return (
     <div className="space-y-8 p-6 mt-8">
@@ -202,28 +375,55 @@ const AdminDashboard = () => {
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {mainStats.map((stat, index) => {
+        {metricCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className="relative overflow-hidden border-0 shadow-lg">
-              <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-90`} />
-              <CardContent className="relative p-6 text-white">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-white/80 text-sm font-medium">{stat.title}</p>
-                    <p className="text-3xl font-bold">{stat.value}</p>
-                    <p className="text-white/70 text-xs">{stat.description}</p>
-                  </div>
-                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                    <Icon className="h-6 w-6" />
-                  </div>
+            <InteractiveMetricCard
+              key={index}
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon}
+              color={stat.color}
+              trend={stat.trend}
+              description={stat.description}
+              details={stat.details}
+            >
+              <Card className="relative overflow-hidden border bg-card bg-gray-50 text-card-foreground hover:bg-accent/5 transition-all duration-300 cursor-pointer group shadow-sm hover:shadow-md hover:-translate-y-1">
+                {/* Background differentiation */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-[0.03] group-hover:opacity-[0.07] transition-opacity`} />
+
+                <div className={`absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity`}>
+                  <Icon className="w-24 h-24 text-primary" />
                 </div>
-                <div className="mt-4 flex items-center text-xs text-white/80">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  {stat.trend} from last period
-                </div>
-              </CardContent>
-            </Card>
+                <CardContent className="p-6 relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-3 rounded-2xl bg-gradient-to-br ${stat.color} shadow-lg shadow-black/5`}>
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    {stat.trend && (
+                      <Badge variant="secondary" className="font-mono text-xs bg-background/50 backdrop-blur-sm border-0">
+                        <TrendingUp className="w-3 h-3 mr-1" />
+                        {stat.trend}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold text-foreground">{stat.title}</h3>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-bold tracking-tight">{stat.value}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground pt-1 font-medium">{stat.description}</p>
+                  </div>
+
+                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                    <div className="p-2 rounded-full bg-primary/10 text-primary">
+                      <Activity className="w-4 h-4" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </InteractiveMetricCard>
           );
         })}
       </div>
