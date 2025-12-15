@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { 
-  User, Search, Plus, Edit, Trash2, X, 
+import {
+  User, Search, Plus, Edit, Trash2, X,
   Shield, UserCheck, Activity, Phone,
   ArrowUpDown
 } from 'lucide-react';
@@ -89,7 +89,7 @@ const UserManagement = () => {
 
   // Filtering for main table
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+    const matchesSearch =
       user.firstname.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastname.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -99,7 +99,7 @@ const UserManagement = () => {
     const matchesRole = roleFilter === 'All Roles' || userRole === roleFilter.toLowerCase();
 
     const displayStatus = getDisplayStatus(user);
-    const matchesStatus = statusFilter === 'All Status' || 
+    const matchesStatus = statusFilter === 'All Status' ||
       displayStatus.toLowerCase().includes(statusFilter.toLowerCase());
 
     return matchesSearch && matchesRole && matchesStatus;
@@ -109,8 +109,8 @@ const UserManagement = () => {
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     const aVal = (a as any)[sortField]?.toString().toLowerCase() || '';
     const bVal = (b as any)[sortField]?.toString().toLowerCase() || '';
-    return sortDirection === 'asc' 
-      ? aVal.localeCompare(bVal) 
+    return sortDirection === 'asc'
+      ? aVal.localeCompare(bVal)
       : bVal.localeCompare(aVal);
   });
 
@@ -126,7 +126,7 @@ const UserManagement = () => {
       const success = await ApiService.deleteUser(userId);
       if (success) {
         await refreshUsers();
-        toast({ title: "Success", description: "User deleted successfully." });
+        toast({ title: "Success", description: "User deleted successfully.", variant: "success" });
       } else {
         toast({ title: "Error", description: "Failed to delete user", variant: "destructive" });
       }
@@ -251,125 +251,123 @@ const UserManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              User Management
-            </h1>
-            <p className="text-gray-600 mt-1">Manage all users, roles, and real-time statuses in one place.</p>
-          </div>
-          <Button
-            onClick={() => navigate('/user-creation')}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-6 py-3 rounded-xl shadow-lg"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add New User
-          </Button>
+    <div className="space-y-8 p-6 mt-8 w-full max-w-full overflow-x-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">User Management</h1>
         </div>
+        <Button
+          onClick={() => navigate('/user-creation')}
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-6 py-3 rounded-xl shadow-lg"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Add New User
+        </Button>
+      </div>
 
-        {/* Clickable Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-          <Card 
-            className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
-            onClick={() => setShowTotalModal(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm font-medium mb-2">Total Users</p>
-                  <h3 className="text-5xl font-bold">{totalUsers}</h3>
-                  <p className="text-xs text-blue-100 mt-3">Click to view all</p>
-                </div>
-                <User className="w-8 h-8 opacity-80" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
-            onClick={() => setShowAdminsModal(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-purple-100 text-sm font-medium mb-2">Admins</p>
-                  <h3 className="text-5xl font-bold">{admins.length}</h3>
-                  <p className="text-xs text-purple-100 mt-3">Click to view</p>
-                </div>
-                <Shield className="w-8 h-8 opacity-80" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
-            onClick={() => setShowSupervisorsModal(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm font-medium mb-2">Supervisors</p>
-                  <h3 className="text-5xl font-bold">{supervisors.length}</h3>
-                  <p className="text-xs text-blue-100 mt-3">Click to view</p>
-                </div>
-                <UserCheck className="w-8 h-8 opacity-80" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
-            onClick={() => setShowAgentsModal(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm font-medium mb-2">Agents</p>
-                  <h3 className="text-5xl font-bold">{agents.length}</h3>
-                  <p className="text-xs text-orange-100 mt-3">Click to view</p>
-                </div>
-                <Phone className="w-8 h-8 opacity-80" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
-            onClick={() => setShowOnlineModal(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-green-100 text-sm font-medium mb-2">Online Now</p>
-                  <h3 className="text-5xl font-bold animate-pulse">{onlineUsers.length}</h3>
-                  <p className="text-xs text-green-100 mt-3">Click to view</p>
-                </div>
-                <Activity className="w-8 h-8 opacity-80" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card className="bg-white shadow-lg border border-gray-100">
+      {/* Clickable Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <Card
+          className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
+          onClick={() => setShowTotalModal(true)}
+        >
           <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="relative flex-1 max-w-md">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-blue-100 text-sm font-medium mb-2">Total Users</p>
+                <h3 className="text-5xl font-bold">{totalUsers}</h3>
+                <p className="text-xs text-blue-100 mt-3">Click to view all</p>
+              </div>
+              <User className="w-8 h-8 opacity-80" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
+          onClick={() => setShowAdminsModal(true)}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-purple-100 text-sm font-medium mb-2">Admins</p>
+                <h3 className="text-5xl font-bold">{admins.length}</h3>
+                <p className="text-xs text-purple-100 mt-3">Click to view</p>
+              </div>
+              <Shield className="w-8 h-8 opacity-80" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
+          onClick={() => setShowSupervisorsModal(true)}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-blue-100 text-sm font-medium mb-2">Supervisors</p>
+                <h3 className="text-5xl font-bold">{supervisors.length}</h3>
+                <p className="text-xs text-blue-100 mt-3">Click to view</p>
+              </div>
+              <UserCheck className="w-8 h-8 opacity-80" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
+          onClick={() => setShowAgentsModal(true)}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-orange-100 text-sm font-medium mb-2">Agents</p>
+                <h3 className="text-5xl font-bold">{agents.length}</h3>
+                <p className="text-xs text-orange-100 mt-3">Click to view</p>
+              </div>
+              <Phone className="w-8 h-8 opacity-80" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
+          onClick={() => setShowOnlineModal(true)}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-green-100 text-sm font-medium mb-2">Online Now</p>
+                <h3 className="text-5xl font-bold animate-pulse">{onlineUsers.length}</h3>
+                <p className="text-xs text-green-100 mt-3">Click to view</p>
+              </div>
+              <Activity className="w-8 h-8 opacity-80" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Users Table with Filters */}
+      <Card className="bg-white shadow-lg border border-gray-100">
+        <CardContent className="p-0">
+
+          {/* Filters Section */}
+          <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+            <div className="flex flex-col xl:flex-row gap-4 items-center justify-between">
+              <div className="relative flex-1 w-full xl:max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input
                   placeholder="Search by name, username, or extension..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-3 rounded-xl"
+                  className="pl-10 pr-4 py-3 rounded-xl bg-white"
                 />
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px] bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -381,7 +379,7 @@ const UserManagement = () => {
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px] bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -394,144 +392,139 @@ const UserManagement = () => {
                 </Select>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Main Users Table - HEADINGS SIZE INCREASED */}
-        <Card className="bg-white shadow-lg border border-gray-100 overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th onClick={() => handleSort('firstname')} className="px-6 py-4 text-left text-base font-bold text-gray-900 cursor-pointer hover:bg-gray-100">
-                      <div className="flex items-center gap-2">
-                        First Name <ArrowUpDown className="w-4 h-4" />
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th onClick={() => handleSort('firstname')} className="px-4 py-3 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-gray-100">
+                    <div className="flex items-center gap-2">
+                      First Name <ArrowUpDown className="w-4 h-4" />
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Last Name</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Extension</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Username</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Role</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Queue</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Status</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Level</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Position</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {paginatedUsers.map((user) => (
+                  <tr
+                    key={user.directory_id}
+                    onDoubleClick={() => handleRowDoubleClick(user.directory_id)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                          {user.firstname[0]}{user.lastname[0]}
+                        </div>
+                        <span className="font-medium text-sm">{user.firstname}</span>
                       </div>
-                    </th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Last Name</th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Extension</th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Username</th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Role</th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Queue</th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Status</th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Level</th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Position</th>
-                    <th className="px-6 py-4 text-left text-base font-bold text-gray-900">Actions</th>
+                    </td>
+                    <td className="px-4 py-3 text-sm">{user.lastname}</td>
+                    <td className="px-4 py-3 font-mono text-sm">{user.extension || '-'}</td>
+                    <td className="px-4 py-3 text-sm">{user.user_id}</td>
+                    <td className="px-4 py-3">
+                      <Badge className={getRoleBadge(user.role)}>
+                        {user.role.length > 0 ? user.role.join(', ') : 'User'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {user.queue?.length > 0 ? user.queue.join(', ') : '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge className={getStatusBadge(getDisplayStatus(user))}>
+                        {getDisplayStatus(user)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center text-sm">{user.level || '-'}</td>
+                    <td className="px-4 py-3 text-center text-sm">{user.position || '-'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleEditUser(user.directory_id); }}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.directory_id); }}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {paginatedUsers.map((user) => (
-                    <tr
-                      key={user.directory_id}
-                      onDoubleClick={() => handleRowDoubleClick(user.directory_id)}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                            {user.firstname[0]}{user.lastname[0]}
-                          </div>
-                          <span className="font-medium">{user.firstname}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">{user.lastname}</td>
-                      <td className="px-6 py-4 font-mono text-sm">{user.extension || '-'}</td>
-                      <td className="px-6 py-4">{user.user_id}</td>
-                      <td className="px-6 py-4">
-                        <Badge className={getRoleBadge(user.role)}>
-                          {user.role.length > 0 ? user.role.join(', ') : 'User'}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        {user.queue?.length > 0 ? user.queue.join(', ') : '-'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge className={getStatusBadge(getDisplayStatus(user))}>
-                          {getDisplayStatus(user)}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-center">{user.level || '-'}</td>
-                      <td className="px-6 py-4 text-center">{user.position || '-'}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditUser(user.directory_id); }}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.directory_id); }}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {paginatedUsers.length === 0 && (
-                    <tr>
-                      <td colSpan={10} className="text-center py-12 text-gray-500">
-                        No users found matching your filters.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                ))}
+                {paginatedUsers.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="text-center py-12 text-gray-500">
+                      No users found matching your filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Footer */}
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50">
+            <div className="text-sm text-gray-600">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+              {Math.min(currentPage * itemsPerPage, sortedUsers.length)} of {sortedUsers.length} users
             </div>
 
-            {/* Pagination Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50">
-              <div className="text-sm text-gray-600">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
-                {Math.min(currentPage * itemsPerPage, sortedUsers.length)} of {sortedUsers.length} users
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="flex items-center gap-3 text-sm text-gray-700">
+                <span>Rows per page:</span>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={(value) => {
+                    setItemsPerPage(Number(value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-20 h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="flex items-center gap-3 text-sm text-gray-700">
-                  <span>Rows per page:</span>
-                  <Select 
-                    value={itemsPerPage.toString()} 
-                    onValueChange={(value) => {
-                      setItemsPerPage(Number(value));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="w-20 h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="5">5</SelectItem>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="25">25</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm font-medium text-gray-700">
-                    Page {currentPage} of {totalPages || 1}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages || 1))}
-                    disabled={currentPage === totalPages || totalPages === 0}
-                  >
-                    Next
-                  </Button>
-                </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm font-medium text-gray-700">
+                  Page {currentPage} of {totalPages || 1}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages || 1))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                >
+                  Next
+                </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Modals with improved close button */}
       <UserListModal isOpen={showTotalModal} onClose={() => setShowTotalModal(false)} title="All Users" icon={User} usersList={users} color="blue" />
@@ -539,7 +532,7 @@ const UserManagement = () => {
       <UserListModal isOpen={showSupervisorsModal} onClose={() => setShowSupervisorsModal(false)} title="Supervisors" icon={UserCheck} usersList={supervisors} color="blue" />
       <UserListModal isOpen={showAgentsModal} onClose={() => setShowAgentsModal(false)} title="Agents" icon={Phone} usersList={agents} color="orange" />
       <UserListModal isOpen={showOnlineModal} onClose={() => setShowOnlineModal(false)} title="Online Users" icon={Activity} usersList={onlineUsers} color="green" />
-    </div>
+    </div >
   );
 };
 

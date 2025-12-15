@@ -154,8 +154,16 @@ export const getAuthData = (): AuthData | null => {
 export const getUserRole = (): UserRole => {
   const auth = getAuthData();
   if (!auth) return UserRole.UNKNOWN;
+
   const role = auth.role?.toLowerCase();
-  if (role === "admin" || role === "administrator" || role === "supervisor") return UserRole.ADMIN;
+  const username = (auth.username || auth.user_id || '').toLowerCase();
+
+  // Explicit role check
+  if (role === "admin" || role === "supervisor") return UserRole.ADMIN;
+
+  // Fallback: Check if username is explicitly 'admin'
+  if (username === 'admin') return UserRole.ADMIN;
+
   if (auth.extension || auth.user_id || auth.userId) return UserRole.AGENT;
   return UserRole.UNKNOWN;
 };

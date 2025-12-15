@@ -24,47 +24,48 @@ const LoginPage = () => {
   const isFormValid = username.trim() !== '' && password.trim() !== '';
 
   // ADDED – FORCE LOGOUT HANDLER
-const handleForceLogout = async () => {
-  try {
-    const response = await fetch("https://10.16.7.96/login/force-logout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        agent_name: pendingLogin.username   // ✅ MUST be agent_name
-      })
-    });
-
-    const result = await response.json();
-
-    if (result.status === "success") {
-      toast({
-        title: "Session Cleared",
-        description: "Previous session has been logged out.",
+  const handleForceLogout = async () => {
+    try {
+      const response = await fetch("https://10.16.7.96/login/force-logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_name: pendingLogin.username   // ✅ MUST be agent_name
+        })
       });
 
-      setShowForcePopup(false);
+      const result = await response.json();
 
-      // ✅ Retry login after force logout
-      await handleFinalLogin(
-        pendingLogin.username,
-        pendingLogin.password
-      );
-    } else {
+      if (result.status === "success") {
+        toast({
+          title: "Session Cleared",
+          description: "Previous session has been logged out.",
+          variant: "success",
+        });
+
+        setShowForcePopup(false);
+
+        // ✅ Retry login after force logout
+        await handleFinalLogin(
+          pendingLogin.username,
+          pendingLogin.password
+        );
+      } else {
+        toast({
+          title: "Force Logout Failed",
+          description: result.detail || "Unable to clear previous session",
+          variant: "destructive",
+        });
+      }
+
+    } catch (error) {
       toast({
-        title: "Force Logout Failed",
-        description: result.detail || "Unable to clear previous session",
+        title: "Error",
+        description: "Force logout API request failed",
         variant: "destructive",
       });
     }
-
-  } catch (error) {
-    toast({
-      title: "Error",
-      description: "Force logout API request failed",
-      variant: "destructive",
-    });
-  }
-};
+  };
 
 
   // ADDED – FINAL LOGIN AFTER FORCE LOGOUT
@@ -88,7 +89,11 @@ const handleForceLogout = async () => {
 
         await login(data);
 
-        toast({ title: "Login Successful", description: "Welcome back!" });
+        toast({
+          title: "Login Successful",
+          description: "Welcome back!",
+          variant: "success",
+        });
 
         const role = data.role;
         switch (role) {
@@ -105,7 +110,7 @@ const handleForceLogout = async () => {
             navigate('/home');
         }
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // UPDATED ONLY THIS BLOCK (MINIMALLY) – ADDED FORCE LOGOUT LOGIC
@@ -147,6 +152,7 @@ const handleForceLogout = async () => {
         toast({
           title: "Login Successful",
           description: "Welcome back!",
+          variant: "success",
         });
 
         await login(data);
@@ -184,7 +190,7 @@ const handleForceLogout = async () => {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative overflow-hidden"
       style={{
         backgroundImage: `url('https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1920&q=80')`,
@@ -222,7 +228,7 @@ const handleForceLogout = async () => {
             Sign in to access your dashboard
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
@@ -236,7 +242,7 @@ const handleForceLogout = async () => {
                 className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
             <div className="space-y-2 relative">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -264,7 +270,7 @@ const handleForceLogout = async () => {
                 )}
               </button>
             </div>
-            
+
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"

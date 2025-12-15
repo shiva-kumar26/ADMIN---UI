@@ -12,73 +12,71 @@ export default function KnowledgeBase() {
   const isAdminUser = isAdmin();
 
   return (
-    <div className="p-6 bg-white min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">Knowledge Base</h1>
-
-      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600 mb-1">
-          {isAdminUser ? (
-            <span><strong className="font-semibold">Admin Mode</strong> - Your documents can be made accessible to all agents</span>
-          ) : (
-            <span>👤 <strong className="font-semibold">Agent Mode</strong> - View your documents and global knowledge</span>
-          )}
-        </p>
-        <p className="text-xs text-gray-500">
-          User: {getUserIdentifier()} | Role: {getUserRole()}
-        </p>
-      </div>
-
-      <div className="flex justify-between items-center mb-4 gap-4">
-        <div className="relative w-1/3">
-          <Search className="absolute left-2 top-2.5 text-gray-500 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search knowledge base..."
-            className="pl-8 p-2 rounded border border-gray-300 w-full"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+    <div className="space-y-8 p-6 mt-8 w-full max-w-full overflow-x-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Knowledge Base</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            User: {getUserIdentifier()} | Role: {getUserRole()}
+          </p>
         </div>
         <DocumentUpload />
       </div>
 
-      <DocumentList searchTerm={searchTerm} />
+      {/* <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+          <div className="text-sm text-blue-900">
+            <p className="font-semibold mb-1">
+              {isAdminUser ? 'Admin Mode: Manage Global Knowledge' : 'Agent Mode: Personal & Global Knowledge'}
+            </p>
+            <div className="space-y-1 text-blue-800/80">
+              {isAdminUser ? (
+                <>
+                  <p>• Upload documents and mark them as <strong>"Global"</strong> to make them accessible to all agents.</p>
+                  <p>• Private documents are only visible to you.</p>
+                </>
+              ) : (
+                <>
+                  <p>• <strong>Your Documents:</strong> Private to you.</p>
+                  <p>• <strong>Global Documents:</strong> Shared by admins.</p>
+                  <p>• Chatbot uses both for context.</p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div> */}
 
-      <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Info className="w-4 h-4" />
-          How it works:
-        </h3>
-        <ul className="space-y-2 text-sm text-gray-700">
-          {isAdminUser ? (
-            <>
-              <li><strong>As Admin:</strong> You can upload documents and mark them as "Global"</li>
-              <li><strong>Global Documents:</strong> Will be accessible to ALL agents for their chatbot queries</li>
-              <li><strong>Private Documents:</strong> Only you can access these documents</li>
-              <li><strong>Tip:</strong> Use global documents for company policies, product manuals, etc.</li>
-            </>
-          ) : (
-            <>
-              <li><strong>Your Documents:</strong> Personal knowledge base for your queries</li>
-              <li><strong>Global Documents:</strong> Company-wide knowledge uploaded by admins</li>
-              <li><strong>Chatbot:</strong> Has access to both your documents and global documents</li>
-              <li><strong>Note:</strong> You cannot delete or modify global documents</li>
-            </>
-          )}
-        </ul>
+      <div className="bg-white shadow-lg border border-gray-100 rounded-xl overflow-hidden">
+        {/* Search Section */}
+        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+          <div className="relative w-full">
+            <input
+              type="text"
+              placeholder="Search knowledge base..."
+              className="pl-10 pr-4 py-3 rounded-xl bg-white w-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+              <Search className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        <DocumentList searchTerm={searchTerm} />
       </div>
 
       <button
         onClick={() => setIsChatOpen(!isChatOpen)}
-        className="fixed bottom-4 right-4 bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700"
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-4 rounded-full shadow-xl transition-all hover:scale-105 z-50"
       >
-        <MessageSquare className="w-5 h-5" />
+        <MessageSquare className="w-6 h-6" />
       </button>
 
       {isChatOpen && (
-        // <div className="fixed top-0 right-0 h-full w-96 bg-gray-100 shadow-lg z-50">
-        //   <Chatbot onClose={() => setIsChatOpen(false)} />
-        // </div>
         <Chatbot onClose={() => setIsChatOpen(false)} />
       )}
     </div>

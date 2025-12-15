@@ -161,12 +161,13 @@ export const useEmailTemplates = () => {
       });
 
       if (!response.ok) throw new Error('Failed to create template');
-      
+
       toast({
         title: "Success",
-        description: "Email template created successfully."
+        description: "Email template created successfully.",
+        variant: "success"
       });
-      
+
       await fetchTemplates();
       return true;
     } catch (error) {
@@ -199,12 +200,13 @@ export const useEmailTemplates = () => {
       });
 
       if (!response.ok) throw new Error('Failed to update template');
-      
+
       toast({
         title: "Success",
-        description: "Email template updated successfully."
+        description: "Email template updated successfully.",
+        variant: "success"
       });
-      
+
       await fetchTemplates();
       return true;
     } catch (error) {
@@ -228,12 +230,13 @@ export const useEmailTemplates = () => {
       });
 
       if (!response.ok) throw new Error('Failed to delete template');
-      
+
       toast({
         title: "Success",
-        description: "Email template deleted successfully."
+        description: "Email template deleted successfully.",
+        variant: "success"
       });
-      
+
       await fetchTemplates();
       return true;
     } catch (error) {

@@ -19,7 +19,8 @@ import {
   Wifi,
   Cpu,
   MemoryStick,
-  HardDrive
+  HardDrive,
+  Server
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { useGlobalUsers } from '@/contexts/GlobalUsersContext'; // Import hook
@@ -425,50 +426,7 @@ const AdminDashboard = () => {
     },
   ];
 
-  // Circular Progress Component
-  const CircularProgress = ({ percent, label, used, total, icon: Icon, color }: { percent: number; label: string; used?: number; total?: number; icon: any; color: string }) => {
-    const circumference = 2 * Math.PI * 45;
-    const strokeDashoffset = circumference - (percent / 100) * circumference;
 
-    return (
-      <div className="flex flex-col items-center">
-        <div className="relative w-32 h-32">
-          <svg className="w-32 h-32 -rotate-90 transform">
-            <circle
-              cx="64"
-              cy="64"
-              r="45"
-              stroke="#e5e7eb"
-              strokeWidth="14"
-              fill="transparent"
-            />
-            <circle
-              cx="64"
-              cy="64"
-              r="45"
-              stroke={color}
-              strokeWidth="14"
-              fill="transparent"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              className="transition-all duration-1000 ease-out"
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <Icon className="w-8 h-8 text-gray-700 mb-1" />
-            <span className="text-2xl font-bold text-gray-900">{percent.toFixed(0)}%</span>
-          </div>
-        </div>
-        <p className="mt-3 text-sm font-medium text-gray-700">{label}</p>
-        {used !== undefined && total !== undefined && (
-          <p className="text-xs text-gray-500">
-            {(used / (1024 ** 3)).toFixed(1)} GB / {(total / (1024 ** 3)).toFixed(1)} GB
-          </p>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-8 p-6 mt-8">
@@ -556,105 +514,91 @@ const AdminDashboard = () => {
         })}
       </div>
 
-      {/* Server Resource Monitoring Sections */}
+      {/* System Infrastructure */}
+      <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+        <Server className="w-6 h-6 text-blue-600" />
+        System Infrastructure
+      </h2>
 
-      {/* FREESWITCH Resources */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-          <Database className="w-6 h-6 text-blue-600" />
-          FREESWITCH Resources
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
-          <CircularProgress
-            percent={freeswitchMetrics.cpu}
-            label="CPU Usage"
-            icon={Cpu}
-            color={freeswitchMetrics.cpu > 80 ? '#ef4444' : freeswitchMetrics.cpu > 50 ? '#f59e0b' : '#10b981'}
-          />
-          <CircularProgress
-            percent={freeswitchMetrics.ram}
-            label="RAM Usage"
-            used={freeswitchMetrics.ramUsed}
-            total={freeswitchMetrics.ramTotal}
-            icon={MemoryStick}
-            color={freeswitchMetrics.ram > 80 ? '#ef4444' : freeswitchMetrics.ram > 50 ? '#f59e0b' : '#10b981'}
-          />
-          <CircularProgress
-            percent={freeswitchMetrics.disk}
-            label="Disk Usage"
-            used={freeswitchMetrics.diskUsed}
-            total={freeswitchMetrics.diskTotal}
-            icon={HardDrive}
-            color={freeswitchMetrics.disk > 80 ? '#ef4444' : freeswitchMetrics.disk > 50 ? '#f59e0b' : '#10b981'}
-          />
-        </div>
-      </div>
-
-      {/* API Server Resources */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-          <Database className="w-6 h-6 text-blue-600" />
-          API Server Resources
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
-          <CircularProgress
-            percent={apiServerMetrics.cpu}
-            label="CPU Usage"
-            icon={Cpu}
-            color={apiServerMetrics.cpu > 80 ? '#ef4444' : apiServerMetrics.cpu > 50 ? '#f59e0b' : '#10b981'}
-          />
-          <CircularProgress
-            percent={apiServerMetrics.ram}
-            label="RAM Usage"
-            used={apiServerMetrics.ramUsed}
-            total={apiServerMetrics.ramTotal}
-            icon={MemoryStick}
-            color={apiServerMetrics.ram > 80 ? '#ef4444' : apiServerMetrics.ram > 50 ? '#f59e0b' : '#10b981'}
-          />
-          <CircularProgress
-            percent={apiServerMetrics.disk}
-            label="Disk Usage"
-            used={apiServerMetrics.diskUsed}
-            total={apiServerMetrics.diskTotal}
-            icon={HardDrive}
-            color={apiServerMetrics.disk > 80 ? '#ef4444' : apiServerMetrics.disk > 50 ? '#f59e0b' : '#10b981'}
-          />
-        </div>
-      </div>
-
-      {/* Database Server Resources */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-          <Database className="w-6 h-6 text-blue-600" />
-          Database Server Resources
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
-          <CircularProgress
-            percent={dbServerMetrics.cpu}
-            label="CPU Usage"
-            icon={Cpu}
-            color={dbServerMetrics.cpu > 80 ? '#ef4444' : dbServerMetrics.cpu > 50 ? '#f59e0b' : '#10b981'}
-          />
-          <CircularProgress
-            percent={dbServerMetrics.ram}
-            label="RAM Usage"
-            used={dbServerMetrics.ramUsed}
-            total={dbServerMetrics.ramTotal}
-            icon={MemoryStick}
-            color={dbServerMetrics.ram > 80 ? '#ef4444' : dbServerMetrics.ram > 50 ? '#f59e0b' : '#10b981'}
-          />
-          <CircularProgress
-            percent={dbServerMetrics.disk}
-            label="Disk Usage"
-            used={dbServerMetrics.diskUsed}
-            total={dbServerMetrics.diskTotal}
-            icon={HardDrive}
-            color={dbServerMetrics.disk > 80 ? '#ef4444' : dbServerMetrics.disk > 50 ? '#f59e0b' : '#10b981'}
-          />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <ServerMetricCard metrics={freeswitchMetrics} icon={Activity} />
+        <ServerMetricCard metrics={apiServerMetrics} icon={Zap} />
+        <ServerMetricCard metrics={dbServerMetrics} icon={Database} />
       </div>
 
     </div>
   );
 };
 export default AdminDashboard;
+
+// Internal Component for Server Metrics
+const ServerMetricCard = ({ metrics, icon: Icon }: { metrics: ServerMetrics; icon: any }) => {
+  return (
+    <Card className="shadow-sm hover:shadow-md transition-all duration-200 border-gray-100">
+      <CardHeader className="pb-3 border-b border-gray-50 bg-gray-50/30">
+        <CardTitle className="text-base font-semibold text-gray-800 flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Icon className="w-4 h-4 text-blue-600" />
+            {metrics.name}
+          </span>
+          <div className="flex gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-5 space-y-5">
+        {/* CPU */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs font-medium">
+            <span className="text-gray-500 flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5" /> CPU
+            </span>
+            <span className={metrics.cpu > 80 ? "text-red-600" : "text-gray-700"}>{metrics.cpu.toFixed(1)}%</span>
+          </div>
+          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${metrics.cpu > 80 ? "bg-red-500" : metrics.cpu > 50 ? "bg-yellow-500" : "bg-blue-500"}`}
+              style={{ width: `${metrics.cpu}%` }}
+            />
+          </div>
+        </div>
+
+        {/* RAM */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs font-medium">
+            <span className="text-gray-500 flex items-center gap-1.5">
+              <MemoryStick className="w-3.5 h-3.5" /> RAM
+            </span>
+            <span className={metrics.ram > 80 ? "text-red-600" : "text-gray-700"}>
+              {metrics.ram.toFixed(1)}% <span className="text-gray-400 font-normal">({(metrics.ramUsed / (1024 ** 3)).toFixed(1)}GB)</span>
+            </span>
+          </div>
+          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${metrics.ram > 80 ? "bg-red-500" : metrics.ram > 50 ? "bg-yellow-500" : "bg-purple-500"}`}
+              style={{ width: `${metrics.ram}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Disk */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs font-medium">
+            <span className="text-gray-500 flex items-center gap-1.5">
+              <HardDrive className="w-3.5 h-3.5" /> Disk
+            </span>
+            <span className={metrics.disk > 80 ? "text-red-600" : "text-gray-700"}>
+              {metrics.disk.toFixed(1)}% <span className="text-gray-400 font-normal">({(metrics.diskUsed / (1024 ** 3)).toFixed(1)}GB)</span>
+            </span>
+          </div>
+          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${metrics.disk > 80 ? "bg-red-500" : metrics.disk > 50 ? "bg-yellow-500" : "bg-emerald-500"}`}
+              style={{ width: `${metrics.disk}%` }}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};

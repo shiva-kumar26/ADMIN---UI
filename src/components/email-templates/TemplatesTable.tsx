@@ -25,31 +25,31 @@ export const TemplatesTable: React.FC<TemplatesTableProps> = ({
   return (
     <Table>
       <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Subject</TableHead>
-          <TableHead>Content Preview</TableHead>
-          <TableHead>Files</TableHead>
-          <TableHead>Actions</TableHead>
+        <TableRow className="bg-gray-50 border-b border-gray-200">
+          <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900">Name</TableHead>
+          <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900">Subject</TableHead>
+          <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900">Content Preview</TableHead>
+          <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900">Files</TableHead>
+          <TableHead className="px-4 py-3 text-center text-sm font-bold text-gray-900">Actions</TableHead>
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody className="divide-y divide-gray-100">
         {templates.map((template) => {
           const { content, images, attachments } = extractFilesFromBody(template.body);
-          
+
           return (
-            <TableRow key={template.template_id}>
-              <TableCell>
+            <TableRow key={template.template_id} className="hover:bg-gray-50 transition-colors">
+              <TableCell className="px-4 py-3 text-sm">
                 <div className="flex items-center space-x-2">
                   <Mail className="w-4 h-4 text-blue-600" />
-                  <span>{template.name}</span>
+                  <span className="font-medium">{template.name}</span>
                 </div>
               </TableCell>
-              <TableCell>{template.subject}</TableCell>
-              <TableCell>
+              <TableCell className="px-4 py-3 text-sm">{template.subject}</TableCell>
+              <TableCell className="px-4 py-3 text-sm">
                 <div className="max-w-xs truncate">{content}</div>
               </TableCell>
-              <TableCell>
+              <TableCell className="px-4 py-3 text-sm">
                 <div className="flex space-x-2">
                   {images.length > 0 && (
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
@@ -63,19 +63,19 @@ export const TemplatesTable: React.FC<TemplatesTableProps> = ({
                   )}
                 </div>
               </TableCell>
-              <TableCell>
-                <div className="flex space-x-2">
-                  <Button size="sm" variant="outline" onClick={() => onViewTemplate(template)}>
+              <TableCell className="px-4 py-3">
+                <div className="flex justify-center gap-2">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onViewTemplate(template)}>
                     <Eye className="w-4 h-4" />
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => onEditTemplate(template)}>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEditTemplate(template)}>
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                     onClick={() => onDeleteTemplate(template.template_id)}
-                    className="text-red-600 hover:text-red-700"
                     disabled={loading}
                   >
                     <Trash2 className="w-4 h-4" />

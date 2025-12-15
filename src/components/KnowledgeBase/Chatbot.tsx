@@ -159,7 +159,7 @@ const Chatbot: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
       if (res.data.uploaded_files > 0) {
         queryClient.invalidateQueries({ queryKey: ['documents'] });
-        toast({ title: 'Files Uploaded', description: `${res.data.uploaded_files} file(s) added` });
+        toast({ title: 'Files Uploaded', description: `${res.data.uploaded_files} file(s) added`, variant: 'success' });
       }
     } catch (error) {
       console.error('API Error:', error);
@@ -292,7 +292,7 @@ const Chatbot: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       if (trimmed.startsWith('http')) {
         elements.push(
           <a key={idx} href={trimmed} target="_blank" rel="noopener noreferrer"
-             className="text-blue-600 hover:underline break-all">
+            className="text-blue-600 hover:underline break-all">
             {trimmed}
           </a>
         );
@@ -357,10 +357,10 @@ const Chatbot: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <div className="mb-3 space-y-2">
                   {m.files.map((f, i) => f.type === 'image' && f.preview ? (
                     <img key={i} src={f.preview} alt={f.file.name}
-                         className="max-w-full h-32 object-cover rounded-lg"/>
+                      className="max-w-full h-32 object-cover rounded-lg" />
                   ) : (
                     <div key={i} className="flex items-center gap-2 p-2 bg-gray-100 rounded-lg text-xs">
-                      <FileText className="w-4 h-4 text-gray-600"/>
+                      <FileText className="w-4 h-4 text-gray-600" />
                       <span className="truncate">{f.file.name}</span>
                     </div>
                   ))}
@@ -392,7 +392,7 @@ const Chatbot: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <div className="flex justify-start">
             <div className="bg-white px-4 py-3 rounded-2xl shadow-sm border border-gray-200">
               <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"/>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
                 <span className="text-sm text-gray-600">Thinking…</span>
               </div>
             </div>
@@ -421,20 +421,20 @@ const Chatbot: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <div key={i} className="relative group">
               {f.type === 'image' && f.preview ? (
                 <div className="relative">
-                  <img src={f.preview} alt="" className="w-16 h-16 object-cover rounded-lg border"/>
+                  <img src={f.preview} alt="" className="w-16 h-16 object-cover rounded-lg border" />
                   <button
                     onClick={() => removeFile(i)}
                     className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
                   >
-                    <X className="w-3 h-3"/>
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg text-xs">
-                  <FileText className="w-3 h-3"/>
+                  <FileText className="w-3 h-3" />
                   <span className="truncate max-w-20">{f.file.name}</span>
                   <button onClick={() => removeFile(i)} className="text-red-500">
-                    <X className="w-3 h-3"/>
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               )}
@@ -459,7 +459,7 @@ const Chatbot: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             htmlFor="zenius-file"
             className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 cursor-pointer transition"
           >
-            <Upload className="w-5 h-5 text-gray-600"/>
+            <Upload className="w-5 h-5 text-gray-600" />
           </label>
 
           <input
@@ -477,14 +477,14 @@ const Chatbot: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             disabled={isLoading || (!input.trim() && selectedFiles.length === 0)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition flex items-center gap-1"
           >
-            <SendIcon className="w-5 h-5"/>
+            <SendIcon className="w-5 h-5" />
           </button>
         </div>
 
         {/* Contact numbers */}
         <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-500">
           <div className="flex items-center gap-1">
-            <Phone className="w-3 h-3"/>
+            <Phone className="w-3 h-3" />
             <span>Call us:</span>
           </div>
           <a href="tel:+14084574613" className="hover:text-blue-600 transition">+1 408 457 4613</a>

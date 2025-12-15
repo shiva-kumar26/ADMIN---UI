@@ -92,6 +92,7 @@ const Queues = () => {
       toast({
         title: "Success",
         description: "Queue deleted successfully.",
+        variant: "success",
       });
     } catch (error) {
       toast({
@@ -122,193 +123,186 @@ const Queues = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Queue Management
-            </h1>
-            <p className="text-gray-600 mt-1">Manage and configure all call queues in your system.</p>
-          </div>
-          <Button
-            onClick={() => navigate('/queue-creation')}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-6 py-3 rounded-xl shadow-lg"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add New Queue
-          </Button>
+    <div className="space-y-8 p-6 mt-8 w-full max-w-full overflow-x-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Queue Management</h1>
         </div>
+        <Button
+          onClick={() => navigate('/queue-creation')}
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-6 py-3 rounded-xl shadow-lg"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Add New Queue
+        </Button>
+      </div>
 
-        {/* Search */}
-        <Card className="bg-white shadow-lg border border-gray-100">
-          <CardContent className="p-6">
-            <div className="relative max-w-md">
+      {/* Queues Table with Search */}
+      <Card className="bg-white shadow-lg border border-gray-100 overflow-hidden">
+        <CardContent className="p-0">
+
+          {/* Search Section */}
+          <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+            <div className="relative max-w-md w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
                 placeholder="Search queues by name, strategy, or MOH..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-3 rounded-xl"
+                className="pl-10 pr-4 py-3 rounded-xl bg-white w-full"
               />
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Queues Table */}
-        <Card className="bg-white shadow-lg border border-gray-100 overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th 
-                      onClick={() => handleSort('name')} 
-                      className="px-6 py-4 text-left text-xs font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
-                    >
-                      <div className="flex items-center gap-2">
-                        Queue Name
-                        {sortField === 'name' && <ArrowUpDown className="w-4 h-4" />}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th
+                    onClick={() => handleSort('name')}
+                    className="px-4 py-3 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-gray-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      Queue Name
+                      {sortField === 'name' && <ArrowUpDown className="w-4 h-4" />}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Strategy</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">MOH Sound</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Time Base Score</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Max Wait Time</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Record Template</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {paginatedQueues.map((queue) => (
+                  <tr
+                    key={queue.queue_id}
+                    onDoubleClick={() => handleRowDoubleClick(queue.queue_id.toString())}
+                    className="hover:bg-gray-50 transition-all duration-200 cursor-pointer"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md">
+                          {queue.name.split('@')[0].slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900">{queue.name}</p>
+                        </div>
                       </div>
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Strategy</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">MOH Sound</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Time Base Score</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Max Wait Time</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Record Template</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Actions</th>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant="secondary" className="px-3 py-1 font-medium text-xs">
+                        {queue.strategy}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {queue.moh_sound || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {queue.time_base_score}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {queue.max_wait_time > 0 ? `${queue.max_wait_time}s` : 'Unlimited'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {queue.record_template || 'None'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditQueue(queue.queue_id.toString());
+                          }}
+                          className="h-8 w-8 hover:bg-blue-50"
+                        >
+                          <Edit className="w-4 h-4 text-blue-600" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteQueue(queue.queue_id.toString());
+                          }}
+                          className="h-8 w-8 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {paginatedQueues.map((queue) => (
-                    <tr
-                      key={queue.queue_id}
-                      onDoubleClick={() => handleRowDoubleClick(queue.queue_id.toString())}
-                      className="hover:bg-gray-50 transition-all duration-200 cursor-pointer"
-                    >
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
-                            {queue.name.split('@')[0].slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{queue.name}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <Badge variant="secondary" className="px-4 py-2 font-medium">
-                          {queue.strategy}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-5 text-sm text-gray-600">
-                        {queue.moh_sound || '—'}
-                      </td>
-                      <td className="px-6 py-5 text-sm text-gray-600">
-                        {queue.time_base_score}
-                      </td>
-                      <td className="px-6 py-5 text-sm text-gray-600">
-                        {queue.max_wait_time > 0 ? `${queue.max_wait_time}s` : 'Unlimited'}
-                      </td>
-                      <td className="px-6 py-5 text-sm text-gray-600 truncate max-w-xs">
-                        {queue.record_template || 'None'}
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditQueue(queue.queue_id.toString());
-                            }}
-                            className="hover:bg-blue-50"
-                          >
-                            <Edit className="w-4 h-4 text-blue-600" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteQueue(queue.queue_id.toString());
-                            }}
-                            className="hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {paginatedQueues.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center py-16 text-gray-500 text-lg">
-                        No queues found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                ))}
+                {paginatedQueues.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-center py-16 text-gray-500 text-lg">
+                      No queues found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50">
+            <div className="text-sm text-gray-600">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+              {Math.min(currentPage * itemsPerPage, filteredQueues.length)} of {filteredQueues.length} queues
             </div>
 
-            {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50">
-              <div className="text-sm text-gray-600">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
-                {Math.min(currentPage * itemsPerPage, filteredQueues.length)} of {filteredQueues.length} queues
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-gray-700">Rows per page:</span>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={(v) => {
+                    setItemsPerPage(Number(v));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-20 h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="30">30</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-gray-700">Rows per page:</span>
-                  <Select
-                    value={itemsPerPage.toString()}
-                    onValueChange={(v) => {
-                      setItemsPerPage(Number(v));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="w-20 h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="30">30</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm font-medium text-gray-700">
-                    Page {currentPage} of {totalPages || 1}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages || 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm font-medium text-gray-700">
+                  Page {currentPage} of {totalPages || 1}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages || 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

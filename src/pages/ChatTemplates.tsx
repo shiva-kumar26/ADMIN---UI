@@ -29,7 +29,7 @@ interface ChatTemplate {
 
 const ChatTemplates = () => {
   const { toast } = useToast();
-   const {isSidebarOpen} = useSidebar()
+  const { isSidebarOpen } = useSidebar()
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
@@ -149,6 +149,7 @@ const ChatTemplates = () => {
         toast({
           title: "Template Created",
           description: "New chat template has been successfully created.",
+          variant: "success",
         });
       })
       .catch((error) => {
@@ -334,6 +335,7 @@ const ChatTemplates = () => {
       toast({
         title: "Template Updated",
         description: "Chat template has been successfully updated.",
+        variant: "success",
       });
 
     } catch (error) {
@@ -358,6 +360,7 @@ const ChatTemplates = () => {
         toast({
           title: "Template Deleted",
           description: "Chat template has been successfully deleted.",
+          variant: "success",
         });
       })
       .catch((error) => {
@@ -478,369 +481,367 @@ const ChatTemplates = () => {
 
   };
   return (
-
-    <>
-      <div className="flex flex-col items-center">
-         <Card
-                  className={` h-[88vh] flex flex-col mx-1 mb-2 ${
-                    !isSidebarOpen ? 'w-full ml-10' : 'w-full'
-                  }`}
+    <div className="space-y-8 p-6 mt-8 w-full max-w-full overflow-x-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Chat Templates</h1>
+        </div>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-6 py-3 rounded-xl shadow-lg">
+              <Plus className="w-5 h-5 mr-2" />
+              Create Template
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Chat Template</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="templateName">Template Name</Label>
+                <Input
+                  id="templateName"
+                  value={newTemplate.name}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="content">Content</Label>
+                <Textarea
+                  id="content"
+                  rows={6}
+                  value={newTemplate.content}
+                  onChange={(e) => setNewTemplate({ ...newTemplate, content: e.target.value })}
+                  placeholder="Enter your chat template content here..."
+                />
+              </div>
+              <div className="flex space-x-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  className="flex items-center space-x-2"
                 >
-
-          {/* Sticky Header */}
-          <CardHeader className="sticky top-0 z-10 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <CardTitle>Chat Templates
-                <div className='mt-2'>
-                  <Input
-                    placeholder="Search templates..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-sm"
-                  />
-                </div>
-              </CardTitle>
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-
-                <DialogTrigger asChild>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4" />
-                    Create Template
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Create New Chat Template</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="templateName">Template Name</Label>
-                      <Input
-                        id="templateName"
-                        value={newTemplate.name}
-                        onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="content">Content</Label>
-                      <Textarea
-                        id="content"
-                        rows={6}
-                        value={newTemplate.content}
-                        onChange={(e) => setNewTemplate({ ...newTemplate, content: e.target.value })}
-                        placeholder="Enter your chat template content here..."
-                      />
-                    </div>
-                    <div className="flex space-x-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => attachmentInputRef.current?.click()}
-                        className="flex items-center space-x-2"
-                      >
-                        <Paperclip className="w-4 h-4" />
-                        <span>Add Attachment</span>
-                      </Button>
-                      <input
-                        ref={attachmentInputRef}
-                        type="file"
-                        multiple
-                        onChange={(e) => handleAttachmentUpload(e)}
-                        className="hidden"
-                      />
-                    </div>
-                    {newTemplate.attachments.length > 0 && (
-                      <div>
-                        <Label>Attachments:</Label>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {newTemplate.attachments.map((attachment, index) => (
-                            <div key={index} className="flex items-center bg-green-100 px-3 py-1 rounded">
-                              <span className="text-sm">{attachment.name}</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeAttachment(index)}
-                                className="ml-2 h-4 w-4 p-0"
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <Button onClick={handleCreateTemplate} className="w-full bg-blue-600 hover:bg-blue-700">
-                      Create Template
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-          </CardHeader>
-          <CardContent className="flex-1 p-0 overflow-hidden">
-            <div className="relative max-h-[calc(88vh-150px)] overflow-auto scrollbar-hide">
-              <div className="min-w-full overflow-x-auto scrollbar-hide">
-                <Table className="min-w-full table-auto scrollbar-hide px-2">
-                  <TableHeader>
-                    <TableRow className="sticky top-0 z-10 bg-white">
-
-                      <TableHead onClick={() => handleSort('firstname')} className="min-w-[140px] px-4 py-1 bg-gray-50 cursor-pointer text-black">
-                        <div className="flex items-center gap-2">
-                          Template Name <ArrowUpDown className="w-4 h-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="min-w-[120px] text-black">Content Preview</TableHead>
-                      <TableHead className="min-w-[120px] text-black">Files</TableHead>
-                      <TableHead className='min-w-[120px] text-black'>Created</TableHead>
-                      <TableHead className="min-w-[120px] text-center text-black">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-
-                  <TableBody>
-                    {paginatedTemplates.map((template) => (
-                      <TableRow
-                        // key={template.template_id}
-                        className="hover:bg-gray-50 cursor-pointer h-[50px]"
-                      // onDoubleClick={() => handleRowDoubleClick(template.template_id)}
-                      >
-                        <TableCell className=" min-w-[120px] px-4 py-2 font-medium">{template.name}</TableCell>
-
-                        <TableCell>
-                          <div className="max-w-xs">
-                            <div className="text-sm text-gray-900 line-clamp-2">
-                              {getContentPreview(template.content)}
-                            </div>
-                            {extractBase64Image(template.content) && (
-                              <div className="mt-1">
-                                <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                                  📷 Embedded Image
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            {getFileCountDisplay(template.images, 'image')}
-                            {getFileCountDisplay(template.attachments, 'file')}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(template.createdAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline" onClick={() => handleViewTemplate(template)}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleEditTemplate(template)} className="border-blue-600 text-blue-600 hover:bg-blue-50">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDeleteTemplate(template.id)}
-                              className="text-red-600 hover:text-red-700 border-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                  <Paperclip className="w-4 h-4" />
+                  <span>Add Attachment</span>
+                </Button>
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  multiple
+                  onChange={(e) => handleAttachmentUpload(e)}
+                  className="hidden"
+                />
               </div>
-            </div>
-          </CardContent>
-          {editingTemplate && editingData && (
-            <Dialog open={!!editingTemplate} onOpenChange={() => { setEditingTemplate(null); setEditingData(null); }}>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Edit Template: {editingData.name}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="editTemplateName">Template Name</Label>
-                    <Input
-                      id="editTemplateName"
-                      value={editingData.name}
-                      onChange={(e) => setEditingData({ ...editingData, name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="editContent">Content</Label>
-                    <Textarea
-                      id="editContent"
-                      rows={6}
-                      value={editingData.content}
-                      onChange={(e) => setEditingData({ ...editingData, content: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex space-x-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => editImageInputRef.current?.click()}
-                      className="flex items-center space-x-2"
-                    >
-                      <Image className="w-4 h-4" />
-                      <span>Add Image</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => editAttachmentInputRef.current?.click()}
-                      className="flex items-center space-x-2"
-                    >
-                      <Paperclip className="w-4 h-4" />
-                      <span>Add Attachment</span>
-                    </Button>
-                    <input
-                      ref={editImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => handleImageUpload(e, true)}
-                      className="hidden"
-                    />
-                    <input
-                      ref={editAttachmentInputRef}
-                      type="file"
-                      multiple
-                      onChange={(e) => handleAttachmentUpload(e, true)}
-                      className="hidden"
-                    />
-                  </div>
-                  {editingData.images.length > 0 && (
-                    <div>
-                      <Label>Images</Label>
-                      <div className="flex flex-wrap gap-3 mt-2">
-                        {editingData.images.map((img, idx) => (
-                          <div key={idx} className="flex flex-col items-center bg-blue-50 p-3 rounded border">
-                            <div className="relative">
-                              {img.file ? (
-                                <img
-                                  src={URL.createObjectURL(img.file)}
-                                  alt={img.name}
-                                  className="w-16 h-16 object-cover rounded"
-                                />
-                              ) : (
-                                <img
-                                  src={img.url}
-                                  alt={img.name}
-                                  className="w-16 h-16 object-cover rounded"
-                                />
-                              )}
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => removeImage(idx, true)}
-                                className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            </div>
-                            <span className="text-xs mt-1 text-center max-w-[70px] truncate" title={img.name}>
-                              {img.name}
-                            </span>
-                          </div>
-                        ))}
+              {newTemplate.attachments.length > 0 && (
+                <div>
+                  <Label>Attachments:</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {newTemplate.attachments.map((attachment, index) => (
+                      <div key={index} className="flex items-center bg-green-100 px-3 py-1 rounded">
+                        <span className="text-sm">{attachment.name}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeAttachment(index)}
+                          className="ml-2 h-4 w-4 p-0"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
                       </div>
-                    </div>
-                  )}
-                  {editingData.attachments.length > 0 && (
-                    <div>
-                      <Label>Attachments</Label>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {editingData.attachments.map((att, idx) => (
-                          <div key={idx} className="flex items-center bg-green-100 px-3 py-1 rounded">
-                            <span className="text-sm">{att.name}</span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => removeAttachment(idx, true)}
-                              className="ml-2 h-4 w-4 p-0"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <Button onClick={handleSaveEdit} className="w-full bg-blue-600 hover:bg-blue-700">
-                    Save Changes
-                  </Button>
-                  <Button variant="outline" onClick={handleCancelEdit} className="w-full">
-                    Cancel
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
-          <CardFooter className="border-t border-gray-200 px-4 py-3 bg-white sticky bottom-0 z-10">
-            <div className="w-full flex justify-between items-center">
-              {/* Record Count */}
-              <span className="text-sm text-gray-600">
-                Showing {startIndex + 1} to {startIndex + paginatedTemplates.length} of {filteredTemplates.length} Records
-              </span>
-
-              {/* Pagination Controls */}
-              <div className="flex items-center gap-4">
-
-                {/* Rows per page selector */}
-                <div className="flex items-center gap-1 text-sm text-gray-600">
-                  <label htmlFor="itemsPerPage">Rows per page:</label>
-                  <select
-                    id="itemsPerPage"
-                    className="border border-gray-300 rounded px-2 py-1"
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                  >
-                    {[10, 20, 30, 50].map((num) => (
-                      <option key={num} value={num}>
-                        {num}
-                      </option>
                     ))}
-                  </select>
+                  </div>
                 </div>
-
-                {/* Page navigation icons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`px-3 py-1 rounded border text-sm ${currentPage === 1
-                        ? 'text-gray-400 border-gray-200 cursor-not-allowed'
-                        : 'text-gray-700 border-gray-300 hover:bg-gray-100'
-                      }`}
-                  >
-                    ‹
-                  </button>
-                  <span className="text-sm text-gray-700">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`px-3 py-1 rounded border text-sm ${currentPage === totalPages
-                        ? 'text-gray-400 border-gray-200 cursor-not-allowed'
-                        : 'text-gray-700 border-gray-300 hover:bg-gray-100'
-                      }`}
-                  >
-                    ›
-                  </button>
-                </div>
-              </div>
+              )}
+              <Button onClick={handleCreateTemplate} className="w-full bg-blue-600 hover:bg-blue-700">
+                Create Template
+              </Button>
             </div>
-          </CardFooter>
-        </Card>
-
+          </DialogContent>
+        </Dialog>
       </div>
-    </>
+
+      <Card className="bg-white shadow-lg border border-gray-100 overflow-hidden">
+        <CardContent className="p-0">
+
+          {/* Search Section */}
+          <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+            <div className="relative max-w-md w-full">
+              <Input
+                placeholder="Search templates..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-3 rounded-xl bg-white w-full"
+              />
+              {/* Re-add search icon if needed, but Input has padding. Let's add the icon manually like other pages */}
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                {/* Reuse existing search icon style if you want, or just generic Search lucide */}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50 border-b border-gray-200">
+                  <TableHead onClick={() => handleSort('firstname')} className="px-4 py-3 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-gray-100 min-w-[140px]">
+                    <div className="flex items-center gap-2">
+                      Template Name <ArrowUpDown className="w-4 h-4" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900 min-w-[120px]">Content Preview</TableHead>
+                  <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900 min-w-[120px]">Files</TableHead>
+                  <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900 min-w-[120px]">Created</TableHead>
+                  <TableHead className="px-4 py-3 text-center text-sm font-bold text-gray-900 min-w-[120px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+
+              <TableBody className="divide-y divide-gray-100">
+                {paginatedTemplates.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                      No templates found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedTemplates.map((template) => (
+                    <TableRow
+                      key={template.id}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <TableCell className="px-4 py-3 font-medium text-sm">{template.name}</TableCell>
+
+                      <TableCell className="px-4 py-3">
+                        <div className="max-w-xs">
+                          <div className="text-sm text-gray-900 line-clamp-2">
+                            {getContentPreview(template.content)}
+                          </div>
+                          {extractBase64Image(template.content) && (
+                            <div className="mt-1">
+                              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                                📷 Embedded Image
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          {getFileCountDisplay(template.images, 'image')}
+                          {getFileCountDisplay(template.attachments, 'file')}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-sm">
+                        {new Date(template.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="flex justify-center gap-2">
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleViewTemplate(template)}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => handleEditTemplate(template)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteTemplate(template.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+
+          {/* Pagination Footer */}
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50">
+            <div className="text-sm text-gray-600">
+              Showing {filteredTemplates.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredTemplates.length)} of {filteredTemplates.length} entries
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Rows per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border rounded-md px-2 py-1 text-sm bg-white"
+                >
+                  {[5, 10, 20, 50].map((num) => (
+                    <option key={num} value={num}>
+                      {num}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm font-medium">
+                  Page {currentPage} of {totalPages || 1}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {editingTemplate && editingData && (
+        <Dialog open={!!editingTemplate} onOpenChange={() => { setEditingTemplate(null); setEditingData(null); }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Template: {editingData.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="editTemplateName">Template Name</Label>
+                <Input
+                  id="editTemplateName"
+                  value={editingData.name}
+                  onChange={(e) => setEditingData({ ...editingData, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editContent">Content</Label>
+                <Textarea
+                  id="editContent"
+                  rows={6}
+                  value={editingData.content}
+                  onChange={(e) => setEditingData({ ...editingData, content: e.target.value })}
+                />
+              </div>
+              <div className="flex space-x-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => editImageInputRef.current?.click()}
+                  className="flex items-center space-x-2"
+                >
+                  <Image className="w-4 h-4" />
+                  <span>Add Image</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => editAttachmentInputRef.current?.click()}
+                  className="flex items-center space-x-2"
+                >
+                  <Paperclip className="w-4 h-4" />
+                  <span>Add Attachment</span>
+                </Button>
+                <input
+                  ref={editImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => handleImageUpload(e, true)}
+                  className="hidden"
+                />
+                <input
+                  ref={editAttachmentInputRef}
+                  type="file"
+                  multiple
+                  onChange={(e) => handleAttachmentUpload(e, true)}
+                  className="hidden"
+                />
+              </div>
+              {editingData.images.length > 0 && (
+                <div>
+                  <Label>Images</Label>
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {editingData.images.map((img, idx) => (
+                      <div key={idx} className="flex flex-col items-center bg-blue-50 p-3 rounded border">
+                        <div className="relative">
+                          {img.file ? (
+                            <img
+                              src={URL.createObjectURL(img.file)}
+                              alt={img.name}
+                              className="w-16 h-16 object-cover rounded"
+                            />
+                          ) : (
+                            <img
+                              src={img.url}
+                              alt={img.name}
+                              className="w-16 h-16 object-cover rounded"
+                            />
+                          )}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => removeImage(idx, true)}
+                            className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <span className="text-xs mt-1 text-center max-w-[70px] truncate" title={img.name}>
+                          {img.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {editingData.attachments.length > 0 && (
+                <div>
+                  <Label>Attachments</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {editingData.attachments.map((att, idx) => (
+                      <div key={idx} className="flex items-center bg-green-100 px-3 py-1 rounded">
+                        <span className="text-sm">{att.name}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeAttachment(idx, true)}
+                          className="ml-2 h-4 w-4 p-0"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <Button onClick={handleSaveEdit} className="w-full bg-blue-600 hover:bg-blue-700">
+                Save Changes
+              </Button>
+              <Button variant="outline" onClick={handleCancelEdit} className="w-full">
+                Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   );
 };
 
