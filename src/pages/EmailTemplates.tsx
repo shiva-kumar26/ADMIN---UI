@@ -48,8 +48,8 @@ const EmailTemplates = () => {
   };
 
   const filteredTemplates = templates.filter(template =>
-    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.subject.toLowerCase().includes(searchTerm.toLowerCase())
+    (template.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (template.subject ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage);

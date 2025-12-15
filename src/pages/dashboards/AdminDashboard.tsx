@@ -60,8 +60,8 @@ const AdminDashboard = () => {
   const [queueCount, setQueueCount] = useState('0');
   const [onCallDetails, setOnCallDetails] = useState<DetailItem[]>([]);
 
-  // NEW: Server metrics state (single server)
-  const [serverMetrics, setServerMetrics] = useState<ServerMetrics>({
+  // FREESWITCH metrics (10.16.7.91)
+  const [freeswitchMetrics, setFreeswitchMetrics] = useState<ServerMetrics>({
     name: 'FREESWITCH',
     cpu: 0,
     ram: 0,
@@ -72,14 +72,38 @@ const AdminDashboard = () => {
     diskTotal: 0
   });
 
-  // NEW: Fetch server metrics from your working endpoint
+  // API Server metrics (10.16.7.96)
+  const [apiServerMetrics, setApiServerMetrics] = useState<ServerMetrics>({
+    name: 'API Server',
+    cpu: 0,
+    ram: 0,
+    ramUsed: 0,
+    ramTotal: 0,
+    disk: 0,
+    diskUsed: 0,
+    diskTotal: 0
+  });
+
+  // Database Server metrics (10.16.7.95) - ready when endpoint is live
+  const [dbServerMetrics, setDbServerMetrics] = useState<ServerMetrics>({
+    name: 'Database Server',
+    cpu: 0,
+    ram: 0,
+    ramUsed: 0,
+    ramTotal: 0,
+    disk: 0,
+    diskUsed: 0,
+    diskTotal: 0
+  });
+
+  // Fetch FREESWITCH metrics
   useEffect(() => {
-    const fetchServerMetrics = async () => {
+    const fetchFreeswitchMetrics = async () => {
       try {
         const response = await fetch('http://10.16.7.91:3000/api/server-metrics');
         if (response.ok) {
           const data = await response.json();
-          setServerMetrics({
+          setFreeswitchMetrics({
             name: 'FREESWITCH',
             cpu: data.cpu || 0,
             ram: data.ram || 0,
@@ -91,12 +115,68 @@ const AdminDashboard = () => {
           });
         }
       } catch (err) {
-        console.error('Failed to fetch server metrics', err);
+        console.error('Failed to fetch FREESWITCH metrics', err);
       }
     };
 
-    fetchServerMetrics();
-    const interval = setInterval(fetchServerMetrics, 10000); // Update every 10 seconds
+    fetchFreeswitchMetrics();
+    const interval = setInterval(fetchFreeswitchMetrics, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch API Server metrics
+  useEffect(() => {
+    const fetchApiServerMetrics = async () => {
+      try {
+        const response = await fetch('http://10.16.7.96:3000/api/server-metrics');
+        if (response.ok) {
+          const data = await response.json();
+          setApiServerMetrics({
+            name: 'API Server',
+            cpu: data.cpu || 0,
+            ram: data.ram || 0,
+            ramUsed: data.ramUsed || 0,
+            ramTotal: data.ramTotal || 0,
+            disk: data.disk || 0,
+            diskUsed: data.diskUsed || 0,
+            diskTotal: data.diskTotal || 0
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch API Server metrics', err);
+      }
+    };
+
+    fetchApiServerMetrics();
+    const interval = setInterval(fetchApiServerMetrics, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch Database Server metrics (active - will show 0s until endpoint is ready)
+  useEffect(() => {
+    const fetchDbServerMetrics = async () => {
+      try {
+        const response = await fetch('http://10.16.7.95:3000/api/server-metrics');
+        if (response.ok) {
+          const data = await response.json();
+          setDbServerMetrics({
+            name: 'Database Server',
+            cpu: data.cpu || 0,
+            ram: data.ram || 0,
+            ramUsed: data.ramUsed || 0,
+            ramTotal: data.ramTotal || 0,
+            disk: data.disk || 0,
+            diskUsed: data.diskUsed || 0,
+            diskTotal: data.diskTotal || 0
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch Database Server metrics', err);
+      }
+    };
+
+    fetchDbServerMetrics();
+    const interval = setInterval(fetchDbServerMetrics, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -262,7 +342,6 @@ const AdminDashboard = () => {
   }, {});
 
   const metricCards = [
-    // ... your existing metricCards array (unchanged)
     {
       title: 'Total Users',
       value: users.length.toString(),
@@ -346,9 +425,9 @@ const AdminDashboard = () => {
     },
   ];
 
-  // NEW: Circular Progress Component
+  // Circular Progress Component
   const CircularProgress = ({ percent, label, used, total, icon: Icon, color }: { percent: number; label: string; used?: number; total?: number; icon: any; color: string }) => {
-    const circumference = 2 * Math.PI * 45; // radius = 45
+    const circumference = 2 * Math.PI * 45;
     const strokeDashoffset = circumference - (percent / 100) * circumference;
 
     return (
@@ -477,7 +556,9 @@ const AdminDashboard = () => {
         })}
       </div>
 
-      {/* NEW: Server Resource Monitoring Row - Named FREESWITCH */}
+      {/* Server Resource Monitoring Sections */}
+
+      {/* FREESWITCH Resources */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
         <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
           <Database className="w-6 h-6 text-blue-600" />
@@ -485,26 +566,90 @@ const AdminDashboard = () => {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
           <CircularProgress
-            percent={serverMetrics.cpu}
+            percent={freeswitchMetrics.cpu}
             label="CPU Usage"
             icon={Cpu}
-            color={serverMetrics.cpu > 80 ? '#ef4444' : serverMetrics.cpu > 50 ? '#f59e0b' : '#10b981'}
+            color={freeswitchMetrics.cpu > 80 ? '#ef4444' : freeswitchMetrics.cpu > 50 ? '#f59e0b' : '#10b981'}
           />
           <CircularProgress
-            percent={serverMetrics.ram}
+            percent={freeswitchMetrics.ram}
             label="RAM Usage"
-            used={serverMetrics.ramUsed}
-            total={serverMetrics.ramTotal}
+            used={freeswitchMetrics.ramUsed}
+            total={freeswitchMetrics.ramTotal}
             icon={MemoryStick}
-            color={serverMetrics.ram > 80 ? '#ef4444' : serverMetrics.ram > 50 ? '#f59e0b' : '#10b981'}
+            color={freeswitchMetrics.ram > 80 ? '#ef4444' : freeswitchMetrics.ram > 50 ? '#f59e0b' : '#10b981'}
           />
           <CircularProgress
-            percent={serverMetrics.disk}
+            percent={freeswitchMetrics.disk}
             label="Disk Usage"
-            used={serverMetrics.diskUsed}
-            total={serverMetrics.diskTotal}
+            used={freeswitchMetrics.diskUsed}
+            total={freeswitchMetrics.diskTotal}
             icon={HardDrive}
-            color={serverMetrics.disk > 80 ? '#ef4444' : serverMetrics.disk > 50 ? '#f59e0b' : '#10b981'}
+            color={freeswitchMetrics.disk > 80 ? '#ef4444' : freeswitchMetrics.disk > 50 ? '#f59e0b' : '#10b981'}
+          />
+        </div>
+      </div>
+
+      {/* API Server Resources */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+          <Database className="w-6 h-6 text-blue-600" />
+          API Server Resources
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
+          <CircularProgress
+            percent={apiServerMetrics.cpu}
+            label="CPU Usage"
+            icon={Cpu}
+            color={apiServerMetrics.cpu > 80 ? '#ef4444' : apiServerMetrics.cpu > 50 ? '#f59e0b' : '#10b981'}
+          />
+          <CircularProgress
+            percent={apiServerMetrics.ram}
+            label="RAM Usage"
+            used={apiServerMetrics.ramUsed}
+            total={apiServerMetrics.ramTotal}
+            icon={MemoryStick}
+            color={apiServerMetrics.ram > 80 ? '#ef4444' : apiServerMetrics.ram > 50 ? '#f59e0b' : '#10b981'}
+          />
+          <CircularProgress
+            percent={apiServerMetrics.disk}
+            label="Disk Usage"
+            used={apiServerMetrics.diskUsed}
+            total={apiServerMetrics.diskTotal}
+            icon={HardDrive}
+            color={apiServerMetrics.disk > 80 ? '#ef4444' : apiServerMetrics.disk > 50 ? '#f59e0b' : '#10b981'}
+          />
+        </div>
+      </div>
+
+      {/* Database Server Resources */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+          <Database className="w-6 h-6 text-blue-600" />
+          Database Server Resources
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
+          <CircularProgress
+            percent={dbServerMetrics.cpu}
+            label="CPU Usage"
+            icon={Cpu}
+            color={dbServerMetrics.cpu > 80 ? '#ef4444' : dbServerMetrics.cpu > 50 ? '#f59e0b' : '#10b981'}
+          />
+          <CircularProgress
+            percent={dbServerMetrics.ram}
+            label="RAM Usage"
+            used={dbServerMetrics.ramUsed}
+            total={dbServerMetrics.ramTotal}
+            icon={MemoryStick}
+            color={dbServerMetrics.ram > 80 ? '#ef4444' : dbServerMetrics.ram > 50 ? '#f59e0b' : '#10b981'}
+          />
+          <CircularProgress
+            percent={dbServerMetrics.disk}
+            label="Disk Usage"
+            used={dbServerMetrics.diskUsed}
+            total={dbServerMetrics.diskTotal}
+            icon={HardDrive}
+            color={dbServerMetrics.disk > 80 ? '#ef4444' : dbServerMetrics.disk > 50 ? '#f59e0b' : '#10b981'}
           />
         </div>
       </div>

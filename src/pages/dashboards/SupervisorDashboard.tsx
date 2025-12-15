@@ -726,7 +726,7 @@ const busyAgents = teamMembers?.filter(
           ) : (
             breakRealtime.map((agent, idx) => (
               <div key={idx} className="p-4 border border-orange-200 bg-orange-50 rounded-lg">
-                <p className="font-semibold text-gray-900">{agent.Name}</p>
+                <p className="font-semibold text-gray-900">{agent.fullname}</p>
                 <p className="text-xs text-gray-600">Extension: {agent.Extension}</p>
               </div>
             ))
