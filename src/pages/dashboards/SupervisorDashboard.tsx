@@ -11,6 +11,10 @@ import { useWebSocketEvent } from '@/contexts/WebSocketContext';
 import axios from 'axios';
 
 
+// ============================================
+// INTERFACES
+// ============================================
+
 interface Recording {
   id: number;
   call_log_id: string;
@@ -20,7 +24,6 @@ interface Recording {
   queue_name: string;
   record_filename: string;
 }
-
 
 interface QAScore {
   alert_id: number;
@@ -32,13 +35,11 @@ interface QAScore {
   message: string;
 }
 
-
 interface TranscriptMessage {
   role: string;
   message: string;
   timestamp?: string;
 }
-
 
 interface LoginLogoutData {
   agent_name: string;
@@ -46,7 +47,6 @@ interface LoginLogoutData {
   logout_timestamp: string;
   duration: string;
 }
-
 
 interface Agent {
   id: string;
@@ -56,22 +56,38 @@ interface Agent {
   contact_state?: string;
 }
 
+// ============================================
+// CONSTANTS
+// ============================================
 
 const API_BASE_URL = 'http://10.16.7.96:8001';
 const RECORDINGS_API = import.meta.env.VITE_API_BASE_URL;
+const REALTIME_API = 'http://10.16.7.91:5001';
 
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 const SupervisorDashboard = () => {
   const { authState } = useAuth();
   const { teamMembers, setTeamMembers } = useWebSocketEvent();
+  const [busyCount, setBusyCount] = useState(0);
+  const [busyAgentsRealtime, setBusyAgentsRealtime] = useState<any[]>([]);
+  const [availableRealtime, setAvailableRealtime] = useState<any[]>([]);
+  const [breakRealtime, setBreakRealtime] = useState<any[]>([]);
+
   const user = authState.user;
   
+  // ---- STATE: Data Loading ----
   const [loading, setLoading] = useState(true);
   const [recentRecordings, setRecentRecordings] = useState<Recording[]>([]);
   const [recentQAScores, setRecentQAScores] = useState<QAScore[]>([]);
   const [loginLogoutData, setLoginLogoutData] = useState<LoginLogoutData[]>([]);
   const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString());
+  const [directOnCallCount, setDirectOnCallCount] = useState(0);
+  const [realtimeBusyAgents, setRealtimeBusyAgents] = useState<any[]>([]);
   
+  // ---- STATE: Modal Visibility ----
   const [showAgentsModal, setShowAgentsModal] = useState(false);
   const [showAvailableModal, setShowAvailableModal] = useState(false);
   const [showBreakModal, setShowBreakModal] = useState(false);
@@ -80,11 +96,15 @@ const SupervisorDashboard = () => {
   const [showQAModal, setShowQAModal] = useState(false);
   const [showLoginLogoutModal, setShowLoginLogoutModal] = useState(false);
   
+  // ---- STATE: Transcript/QA ----
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [selectedQABreakdown, setSelectedQABreakdown] = useState<any>(null);
 
+  // ============================================
+  // API FUNCTIONS
+  // ============================================
 
   const getAgentStatus = async (stationId: string) => {
     const requestBody = { agent: stationId };
@@ -99,7 +119,6 @@ const SupervisorDashboard = () => {
       return null;
     }
   };
-
 
   const fetchSupervisorAgents = async (supervisorId: string) => {
     try {
@@ -117,7 +136,6 @@ const SupervisorDashboard = () => {
     }
   };
 
-
   const fetchRecentRecordings = async () => {
     try {
       const response = await fetch(`${RECORDINGS_API}/api/recordings`);
@@ -131,7 +149,6 @@ const SupervisorDashboard = () => {
       setRecentRecordings([]);
     }
   };
-
 
   const fetchRecentQAScores = async () => {
     try {
@@ -153,7 +170,6 @@ const SupervisorDashboard = () => {
     }
   };
 
-
   const fetchLoginLogoutData = async () => {
     try {
       const response = await axios.get(
@@ -171,13 +187,67 @@ const SupervisorDashboard = () => {
       setLoginLogoutData([]);
     }
   };
-  
-  
+
+const updateRealtimeDashboard = async () => {
+  try {
+    const res = await fetch(`${REALTIME_API}/realtime_agents`);
+    const allAgents = await res.json();
+
+    const supervisorExtensions = new Set(teamMembers.map(a => a.extension));
+
+    const myAgents = allAgents.filter(a =>
+      supervisorExtensions.has(a.Extension)
+    );
+
+    const available = myAgents.filter(a =>
+      a.status?.toLowerCase() === "available"
+    );
+
+    const busy = myAgents.filter(a =>
+      a.status?.toLowerCase() === "busy"
+    );
+
+    const onBreak = myAgents.filter(a => {
+      const s = a.status?.toLowerCase();
+      return s === "break" || s === "on break" || s.includes("break");
+    });
+
+    setAvailableRealtime(available);
+    setBreakRealtime(onBreak);
+    setBusyAgentsRealtime(busy);
+    setBusyCount(busy.length);
+
+  } catch (err) {
+    console.error("Realtime dashboard fetch failed:", err);
+  }
+};
+
+
+  // ✅ FETCH BUSY AGENTS - REAL-TIME API WITH ROLE-BASED FILTERING
+  const fetchBusyAgents = async () => {
+    try {
+      const response = await fetch(`${REALTIME_API}/realtime_agents`);
+      const allAgents = await response.json();
+      
+      // ✅ Get this supervisor's agent extensions
+      const supervisorExtensions = new Set(teamMembers?.map(a => a.extension) || []);
+      
+      // ✅ Filter ONLY busy agents from this supervisor's team
+      const busyAgentsList = allAgents.filter((agent: any) => 
+        agent.status?.toLowerCase() === 'busy' &&
+        supervisorExtensions.has(agent.Extension)
+      );
+      
+      setDirectOnCallCount(busyAgentsList.length);
+      setRealtimeBusyAgents(busyAgentsList);
+    } catch (error) {
+      console.error('Failed to fetch busy agents:', error);
+    }
+  };
 
   const fetchTranscript = async (callId: string, qaMessage: string) => {
     setLoadingTranscript(true);
     setSelectedCallId(callId);
-
 
     try {
       const breakdown = JSON.parse(qaMessage);
@@ -186,13 +256,11 @@ const SupervisorDashboard = () => {
       setSelectedQABreakdown(null);
     }
 
-
     try {
       const response = await axios.get(
         `${API_BASE_URL}/qa/transcript/${callId}`,
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
-
 
       if (response.data && response.data.transcript) {
         const transcriptData = response.data.transcript;
@@ -245,13 +313,15 @@ const SupervisorDashboard = () => {
     }
   };
 
-
   const closeTranscriptModal = () => {
     setSelectedCallId(null);
     setTranscript([]);
     setSelectedQABreakdown(null);
   };
 
+  // ============================================
+  // INITIALIZATION
+  // ============================================
 
   const initializeDashboard = async () => {
     if (!user || !user.user_id) {
@@ -259,131 +329,117 @@ const SupervisorDashboard = () => {
       return;
     }
 
-
     setLoading(true);
     const extensions = await fetchSupervisorAgents(user.user_id);
 
+    if (extensions && extensions.length > 0) {
+      const mappedAgents = await Promise.all(
+        extensions.map(async (agent: { extension: string; full_name: string }) => {
+          const currentStatus = await getAgentStatus(agent.extension);
 
-    // ✅ FIX 1: Include contact_state in agent mapping
-if (extensions && extensions.length > 0) {
-  const mappedAgents = await Promise.all(
-    extensions.map(async (agent: { extension: string; full_name: string }) => {
-      const currentStatus = await getAgentStatus(agent.extension);
-
-      return {
-        id: `agent_${agent.extension}`,
-        fullname: agent.full_name,   // ✅ REAL NAME
-        extension: agent.extension,
-        status: currentStatus || 'Logged Out',
-        contact_state: currentStatus?.toLowerCase().includes("queue")
-          ? "In a queue call"
-          : "Idle"
-      };
-    })
-  );
-  setTeamMembers(mappedAgents);
-}
-
+          return {
+            id: `agent_${agent.extension}`,
+            fullname: agent.full_name,
+            extension: agent.extension,
+            status: currentStatus || 'Logged Out',
+            contact_state: currentStatus?.toLowerCase().includes("queue")
+              ? "In a queue call"
+              : "Idle"
+          };
+        })
+      );
+      setTeamMembers(mappedAgents);
+    }
 
     await Promise.all([
       fetchRecentRecordings(), 
       fetchRecentQAScores(),
-      fetchLoginLogoutData()
+      fetchLoginLogoutData(),
+      fetchBusyAgents()
     ]);
     
     setLastUpdated(new Date().toLocaleTimeString());
     setLoading(false);
   };
 
+  
 
-  // ✅ NEW FUNCTION: Refresh only agent statuses (CHANGE 1)
-  const refreshOnlyStatuses = async () => {
-    if (!teamMembers || teamMembers.length === 0) return;
+  // ============================================
+  // EFFECTS
+  // ============================================
+  
+  useEffect(() => {
+  if (teamMembers.length === 0) return;
 
-    const updated = await Promise.all(
-      teamMembers.map(async (agent) => {
-        const status = await getAgentStatus(agent.extension);
+  updateRealtimeDashboard();
+const interval = setInterval(updateRealtimeDashboard, 1000);
 
-        return {
-          ...agent,
-          status: status || agent.status,
-          contact_state: status?.toLowerCase().includes("queue")
-            ? "In a queue call"
-            : "Idle",
-        };
-      })
-    );
 
-    setTeamMembers(updated);
-  };
-
+  return () => clearInterval(interval);
+}, [teamMembers]);
 
   useEffect(() => {
     initializeDashboard();
   }, [user?.user_id]);
+// for the forced logout whne new agent login based on the session ID
 
   useEffect(() => {
-  const interval = setInterval(async () => {
-    const sessionId = localStorage.getItem("session_id");
+    const interval = setInterval(async () => {
+      const sessionId = localStorage.getItem("session_id");
 
-    if (!sessionId) return;
+      if (!sessionId) return;
 
-    try {
-      const res = await fetch("https://10.16.7.96/login/check-force-logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-        }),
-      });
+      try {
+        const res = await fetch("https://10.16.7.96/login/check-force-logout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+          }),
+        });
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (data.force_logout === true) {
-        // ✅ CLEAR SESSION
-        localStorage.removeItem("session_id");
-        localStorage.removeItem("user_id");
-        sessionStorage.clear();
+        if (data.force_logout === true) {
+          localStorage.removeItem("session_id");
+          localStorage.removeItem("user_id");
+          sessionStorage.clear();
 
-        alert("You were logged out from another login");
+          alert("You were logged out from another login");
 
-        // ✅ REDIRECT TO LOGIN
-        window.location.href = "/";
+          window.location.href = "/";
+        }
+      } catch (error) {
+        console.error("Supervisor polling error:", error);
       }
-    } catch (error) {
-      console.error("Supervisor polling error:", error);
-    }
-  }, 5000); // ✅ every 5 seconds
+    }, 1000);
 
-  return () => clearInterval(interval);
-}, []);
-
-  // ✅ CHANGE 2: Replace full dashboard refresh with status-only refresh
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshOnlyStatuses();
-    }, 2000);
     return () => clearInterval(interval);
-  }, [teamMembers]);
+  }, []);
 
+  
+
+  // ============================================
+  // COMPUTED VALUES
+  // ============================================
 
   const totalAgents = teamMembers?.length || 0;
   const availableAgents = teamMembers?.filter(a => a.status?.toLowerCase() === 'available') || [];
   
-  // ✅ FIX 2: Check contact_state for queue calls
-  const busyAgents = teamMembers?.filter(
-    a =>
-      a.status?.toLowerCase() === 'busy' ||
-      a.status?.toLowerCase() === 'on call' ||
-      a.contact_state?.toLowerCase().includes("queue call")
-  ) || [];
-  
+const busyAgents = teamMembers?.filter(
+  a => a.status?.toLowerCase() === "busy"
+) || [];
+
+
   const breakAgents = teamMembers?.filter(
     a => a.status?.toLowerCase() === 'on break' || a.status?.toLowerCase() === 'break'
   ) || [];
 
+  // ============================================
+  // UTILITY FUNCTIONS
+  // ============================================
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
@@ -400,29 +456,31 @@ if (extensions && extensions.length > 0) {
     }
   };
 
- const formatDateTime = (isoString: string) => {
-  if (!isoString) return "—";
+  const formatDateTime = (isoString: string) => {
+    if (!isoString) return "—";
 
-  const date = new Date(isoString);
+    const date = new Date(isoString);
 
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
 
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
 
-  return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
-};
+    return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+  };
 
- 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'bg-green-100 text-green-800 border-green-200';
     if (score >= 60) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     return 'bg-red-100 text-red-800 border-red-200';
   };
 
+  // ============================================
+  // COMPONENTS
+  // ============================================
 
   const Modal = ({ isOpen, onClose, title, icon: Icon, children }: any) => {
     if (!isOpen) return null;
@@ -458,7 +516,6 @@ if (extensions && extensions.length > 0) {
     );
   };
 
-
   if (loading && teamMembers.length === 0) {
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -470,6 +527,9 @@ if (extensions && extensions.length > 0) {
     );
   }
 
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 md:p-6">
@@ -497,7 +557,6 @@ if (extensions && extensions.length > 0) {
           </div>
         </div>
 
-
         {/* KEY METRICS - 4 Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card 
@@ -521,7 +580,6 @@ if (extensions && extensions.length > 0) {
             </CardContent>
           </Card>
 
-
           <Card 
             className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
             onClick={() => setShowAvailableModal(true)}
@@ -530,7 +588,7 @@ if (extensions && extensions.length > 0) {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-green-100 text-sm font-medium mb-2">Ready</p>
-                  <h3 className="text-5xl font-bold">{availableAgents.length}</h3>
+                  <h3 className="text-5xl font-bold">{availableRealtime.length}</h3>
                   <p className="text-xs text-green-100 mt-2 flex items-center gap-1">
                     <Activity className="w-3 h-3" />
                     Click for details
@@ -543,7 +601,6 @@ if (extensions && extensions.length > 0) {
             </CardContent>
           </Card>
 
-
           <Card 
             className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
             onClick={() => setShowBreakModal(true)}
@@ -552,7 +609,7 @@ if (extensions && extensions.length > 0) {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-orange-100 text-sm font-medium mb-2">Away</p>
-                  <h3 className="text-5xl font-bold">{breakAgents.length}</h3>
+                  <h3 className="text-5xl font-bold">{breakRealtime.length}</h3>
                   <p className="text-xs text-orange-100 mt-2 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     Click for details
@@ -565,7 +622,6 @@ if (extensions && extensions.length > 0) {
             </CardContent>
           </Card>
 
-
           <Card 
             className="bg-gradient-to-br from-red-500 to-pink-600 text-white border-0 shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
             onClick={() => setShowBusyModal(true)}
@@ -574,7 +630,7 @@ if (extensions && extensions.length > 0) {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-red-100 text-sm font-medium mb-2">Busy</p>
-                  <h3 className="text-5xl font-bold">{busyAgents.length}</h3>
+                  <h3 className="text-5xl font-bold animate-pulse">{busyCount}</h3>
                   <p className="text-xs text-red-100 mt-2 flex items-center gap-1">
                     <Phone className="w-3 h-3" />
                     Click for details
@@ -588,11 +644,9 @@ if (extensions && extensions.length > 0) {
           </Card>
         </div>
 
-
-        {/* CLICKABLE INFO BOXES - NO NUMBERS */}
+        {/* CLICKABLE INFO BOXES */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Recordings Box - Clean without numbers */}
           <Card 
             className="bg-white shadow-lg border border-gray-100 rounded-2xl overflow-hidden hover:shadow-2xl transition-all cursor-pointer transform hover:scale-[1.02]"
             onClick={() => setShowRecordingsModal(true)}
@@ -606,8 +660,6 @@ if (extensions && extensions.length > 0) {
             </CardContent>
           </Card>
 
-
-          {/* QA Scores Box - Clean without numbers */}
           <Card 
             className="bg-white shadow-lg border border-gray-100 rounded-2xl overflow-hidden hover:shadow-2xl transition-all cursor-pointer transform hover:scale-[1.02]"
             onClick={() => setShowQAModal(true)}
@@ -621,8 +673,6 @@ if (extensions && extensions.length > 0) {
             </CardContent>
           </Card>
 
-
-          {/* Activity Logs Box - Clean without numbers */}
           <Card 
             className="bg-white shadow-lg border border-gray-100 rounded-2xl overflow-hidden hover:shadow-2xl transition-all cursor-pointer transform hover:scale-[1.02]"
             onClick={() => setShowLoginLogoutModal(true)}
@@ -638,84 +688,91 @@ if (extensions && extensions.length > 0) {
         </div>
       </div>
 
-
-      {/* MODALS */}
-      
-      <Modal isOpen={showAgentsModal} onClose={() => setShowAgentsModal(false)} title="All Team Members" icon={User}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {teamMembers.map((agent, idx) => (
-            <div key={idx} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-gray-900">{agent.fullname}</p>
-                  
-                </div>
-                {/* ✅ FIX 3: Show "On Call" if in queue, otherwise show status */}
-                <Badge className={`${
-                  agent.contact_state?.includes("queue") 
-                    ? 'bg-red-100 text-red-800'
-                    : agent.status === 'Available'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {agent.contact_state?.includes("queue") ? "On Call" : agent.status}
-                </Badge>
+      {/* ALL MODALS */}
+      <Modal isOpen={showAgentsModal} onClose={() => setShowAgentsModal(false)} title={`All Agents (${totalAgents})`} icon={User}>
+        <div className="space-y-3">
+          {teamMembers.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">No agents assigned</p>
+          ) : (
+            teamMembers.map((agent, idx) => (
+              <div key={idx} className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                <p className="font-semibold text-gray-900">{agent.fullname}</p>
+                <p className="text-xs text-gray-600">Extension: {agent.extension} • Status: {agent.status}</p>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </Modal>
 
-
-      <Modal isOpen={showAvailableModal} onClose={() => setShowAvailableModal(false)} title="Available Agents" icon={CheckCircle2}>
+      <Modal isOpen={showAvailableModal} onClose={() => setShowAvailableModal(false)} title={`Available Agents (${availableAgents.length})`} icon={CheckCircle2}>
         <div className="space-y-3">
           {availableAgents.length === 0 ? (
             <p className="text-center text-gray-500 py-8">No agents available</p>
           ) : (
-            availableAgents.map((agent, idx) => (
+            availableRealtime.map((agent, idx) => (
               <div key={idx} className="p-4 border border-green-200 bg-green-50 rounded-lg">
                 <p className="font-semibold text-gray-900">{agent.fullname}</p>
-                
+                <p className="text-xs text-gray-600">Extension: {agent.Extension}</p>
               </div>
             ))
           )}
         </div>
       </Modal>
 
-
-      <Modal isOpen={showBreakModal} onClose={() => setShowBreakModal(false)} title="Agents On Break" icon={Clock}>
+      <Modal isOpen={showBreakModal} onClose={() => setShowBreakModal(false)} title={`Away Agents (${breakAgents.length})`} icon={Clock}>
         <div className="space-y-3">
           {breakAgents.length === 0 ? (
             <p className="text-center text-gray-500 py-8">No agents on break</p>
           ) : (
-            breakAgents.map((agent, idx) => (
+            breakRealtime.map((agent, idx) => (
               <div key={idx} className="p-4 border border-orange-200 bg-orange-50 rounded-lg">
-                <p className="font-semibold text-gray-900">{agent.fullname}</p>
-              
+                <p className="font-semibold text-gray-900">{agent.Name}</p>
+                <p className="text-xs text-gray-600">Extension: {agent.Extension}</p>
               </div>
             ))
           )}
         </div>
       </Modal>
 
-
-      <Modal isOpen={showBusyModal} onClose={() => setShowBusyModal(false)} title="Busy Agents" icon={Phone}>
-        <div className="space-y-3">
-          {busyAgents.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">No agents busy</p>
-          ) : (
-            busyAgents.map((agent, idx) => (
-              <div key={idx} className="p-4 border border-red-200 bg-red-50 rounded-lg">
-                <p className="font-semibold text-gray-900">{agent.fullname}</p>
-                
-              </div>
-            ))
-          )}
+      {/* ✅ UPDATED: Busy Modal uses REAL-TIME API data */}
+ <Modal 
+  isOpen={showBusyModal} 
+  onClose={() => setShowBusyModal(false)} 
+  title={`Busy Agents (${busyCount})`} 
+  icon={Phone}
+>
+  <div className="space-y-3">
+    {busyAgentsRealtime.length === 0 ? (
+  <div className="text-center py-8">
+    <p className="text-gray-500 font-semibold mb-2">No agents busy in your team</p>
+    <p className="text-xs text-gray-400">All {totalAgents} agents are available</p>
+  </div>
+) : (
+  busyAgentsRealtime.map((agent: any, idx: number) => (
+    <div 
+      key={idx} 
+      className="p-4 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge className="bg-red-600 text-white text-xs">{agent.Extension}</Badge>
+            <p className="font-semibold text-gray-900">{agent.Name}</p>
+          </div>
+          <p className="text-xs text-gray-600">Status: {agent.status}</p>
         </div>
-      </Modal>
+        <div className="text-right">
+          <Badge className="bg-red-100 text-red-800 font-semibold">Busy</Badge>
+        </div>
+      </div>
+    </div>
+  ))
+)}
+
+  </div>
+</Modal>
 
 
-      {/* RECORDINGS MODAL - Shows LAST 5 ONLY */}
       <Modal isOpen={showRecordingsModal} onClose={() => setShowRecordingsModal(false)} title="Recent Recordings (Last 5)" icon={PlayCircle}>
         <div className="space-y-4">
           {recentRecordings.length === 0 ? (
@@ -742,8 +799,6 @@ if (extensions && extensions.length > 0) {
         </div>
       </Modal>
 
-
-      {/* QA SCORES MODAL - Shows LAST 5 ONLY */}
       <Modal isOpen={showQAModal} onClose={() => setShowQAModal(false)} title="Recent QA Scores (Last 5)" icon={Target}>
         <div className="space-y-4">
           {recentQAScores.length === 0 ? (
@@ -776,7 +831,6 @@ if (extensions && extensions.length > 0) {
         </div>
       </Modal>
 
-
       <Modal isOpen={showLoginLogoutModal} onClose={() => setShowLoginLogoutModal(false)} title="Agent Activity Logs" icon={Activity}>
         <div className="overflow-x-auto">
           {loginLogoutData.length === 0 ? (
@@ -792,38 +846,31 @@ if (extensions && extensions.length > 0) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-  {loginLogoutData.map((item, index) => (
-    <tr key={index} className="hover:bg-gray-50">
-      
-      <td className="px-4 py-3 text-sm font-medium">
-        {item.agent_name}
-      </td>
-
-      <td className="px-4 py-3 text-sm">
-        <Badge className="bg-green-100 text-green-800">
-          {formatDateTime(item.login_timestamp)}
-        </Badge>
-      </td>
-
-      <td className="px-4 py-3 text-sm">
-        <Badge className="bg-red-100 text-red-800">
-          {formatDateTime(item.logout_timestamp)}
-        </Badge>
-      </td>
-
-      <td className="px-4 py-3 text-sm font-semibold text-blue-600">
-        {item.duration}
-      </td>
-
-    </tr>
-  ))}
-</tbody>
-
+                {loginLogoutData.map((item, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium">
+                      {item.agent_name}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <Badge className="bg-green-100 text-green-800">
+                        {formatDateTime(item.login_timestamp)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <Badge className="bg-red-100 text-red-800">
+                        {formatDateTime(item.logout_timestamp)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-semibold text-blue-600">
+                      {item.duration}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           )}
         </div>
       </Modal>
-
 
       {/* Transcript Modal */}
       {selectedCallId && (
@@ -849,7 +896,6 @@ if (extensions && extensions.length > 0) {
                 </button>
               </div>
             </div>
-
 
             <div className="grid grid-cols-1 lg:grid-cols-3 h-[calc(90vh-100px)]">
               <div className="col-span-2 p-6 overflow-y-auto border-r border-gray-200">
@@ -891,7 +937,6 @@ if (extensions && extensions.length > 0) {
                   </div>
                 )}
               </div>
-
 
               <div className="p-6 overflow-y-auto bg-gray-50">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">QA Score Breakdown</h3>
@@ -940,6 +985,5 @@ if (extensions && extensions.length > 0) {
     </div>
   );
 };
-
 
 export default SupervisorDashboard;

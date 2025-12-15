@@ -11,21 +11,19 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocketEvent } from '@/contexts/WebSocketContext';
 
-
 interface Agent {
   id: string;
   firstname: string;
   lastname: string;
   stationId: string;
-  status: 'Available' | 'On Break' | 'Logged Out' | 'Waiting' | 'Available (On Demand)';
+  status: 'Available' | 'On Break' | 'Logged Out' | 'Waiting' | 'Available (On Demand)' | 'Busy';
   inCall: boolean;
 }
-
 
 const MyAgents = () => {
   const { toast } = useToast();
   const { authState, updateUserStatus } = useAuth();
-  const { teamMembers, setTeamMembers } = useWebSocketEvent();
+  const { teamMembers } = useWebSocketEvent();
   const user = authState.user;
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -33,40 +31,66 @@ const MyAgents = () => {
   const [showModal, setShowModal] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
 
-
   const agentStatuses = [
     'Available',
     'On Break',
     'Available (On Demand)',
+    'Busy',
     'Logged Out',
   ];
 
+  // -------------------------------  
+  // BADGE + DOT COLORS  
+  // -------------------------------
+  const getStatusBadgeStyle = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'available':
+        return "bg-green-600 text-white";
+      case 'available (on demand)':
+        return "bg-green-400 text-white";
+      case 'busy':
+        return "bg-red-600 text-white";
+      case 'on break':
+        return "bg-yellow-500 text-black";
+      case 'logged out':
+        return "bg-gray-800 text-white";
+      default:
+        return "bg-gray-500 text-white";
+    }
+  };
 
-  // Initialize agents from user data OR teamMembers
+  const getStatusDotColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'available':
+        return "bg-green-600";
+      case 'available (on demand)':
+        return "bg-green-400";
+      case 'busy':
+        return "bg-red-600";
+      case 'on break':
+        return "bg-yellow-500";
+      case 'logged out':
+        return "bg-gray-700";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  // -------------------------------
+  // INITIAL LOAD  
+  // -------------------------------
   useEffect(() => {
     const fetchInitialAgentStatuses = async () => {
-      console.log("🔵 MyAgents: Initializing agents...");
-      console.log("🔵 User:", user);
-      console.log("🔵 TeamMembers from context:", teamMembers);
-
-
-      // Use teamMembers if available, otherwise use user.agents
       const sourceAgents = teamMembers.length > 0 ? teamMembers : user?.agents || [];
-      
       if (!sourceAgents || sourceAgents.length === 0) {
-        console.warn('❌ No agents available from any source');
         setLoading(false);
         return;
       }
-
 
       try {
         const filteredAgents = sourceAgents.filter(
           (agent) => agent.supervisor_reference === user.user_id || teamMembers.length > 0
         );
-        
-        console.log("🔵 Filtered agents:", filteredAgents);
-
 
         const mappedAgents = await Promise.all(
           filteredAgents.map(async (agent) => {
@@ -74,234 +98,135 @@ const MyAgents = () => {
             const currentStatus = await getAgentStatus(extension);
             const validStatus = currentStatus || agent.status || 'Logged Out';
 
-
             return {
               id: agent.id || agent.user_id || `agent_${extension}`,
               firstname: agent.firstname || agent.fullname?.split(' ')[0] || 'Agent',
               lastname: agent.lastname || agent.fullname?.split(' ')[1] || '',
-
               stationId: extension,
               status: validStatus as Agent['status'],
-              inCall: !!agent.inCall,
+              inCall: validStatus === "Busy",
             };
           })
         );
-        
+
         setAgents(mappedAgents);
-        console.log('✅ Processed agents with fetched statuses:', mappedAgents);
       } catch (error) {
-        console.error('❌ Error processing agent data or fetching statuses:', error);
+        console.error(error);
         toast({
           title: 'Error',
-          description: 'Failed to process agent data or fetch statuses.',
+          description: 'Failed to fetch agent statuses',
           variant: 'destructive',
         });
       }
-      
+
       setLoading(false);
     };
-
 
     fetchInitialAgentStatuses();
   }, [user, teamMembers, toast]);
 
-
-  // ✅ NEW FUNCTION: Refresh only agent statuses (Same as Supervisor Dashboard)
+  // -------------------------------
+  // POLLING STATUS REFRESH  
+  // -------------------------------
   const refreshOnlyStatuses = async () => {
-    if (!agents || agents.length === 0) return;
-
     try {
-      const updated = await Promise.all(
-        agents.map(async (agent) => {
-          const status = await getAgentStatus(agent.stationId);
+      const response = await axios.get('http://10.16.7.91:5001/realtime_agents');
+      if (!Array.isArray(response.data)) return;
 
-          return {
-            ...agent,
-            status: status || agent.status,
-          };
+      const realtime = response.data;
+
+      setAgents((prevAgents) =>
+        prevAgents.map((agent) => {
+          const rt = realtime.find((r: any) => r.Extension == agent.stationId);
+          return rt
+            ? { ...agent, status: rt.status, inCall: rt.status === "Busy" }
+            : agent;
         })
       );
-
-      setAgents(updated);
-      console.log('✅ Agent statuses refreshed:', updated);
     } catch (error) {
-      console.error('❌ Error refreshing agent statuses:', error);
+      console.error("Status refresh error:", error);
     }
   };
 
-
-  // ✅ POLLING INTERVAL: Refresh statuses every 2 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      refreshOnlyStatuses();
-    }, 2000);
-
+    const interval = setInterval(refreshOnlyStatuses, 2000);
     return () => clearInterval(interval);
-  }, [agents]);
+  }, []);
 
-
-  // Handle WebSocket events - Update agents when teamMembers change
+  // -------------------------------
+  // WEBSOCKET SYNC  
+  // -------------------------------
   useEffect(() => {
-    if (teamMembers.length > 0 && agents.length > 0) {
-      console.log("🔄 Syncing agents with teamMembers updates");
-      
+    if (teamMembers.length > 0) {
       setAgents((prevAgents) =>
         prevAgents.map((agent) => {
-          const updatedMember = teamMembers.find(
-            (member) => member.extension === agent.stationId
-          );
-          
-          if (updatedMember) {
-            return {
-              ...agent,
-              status: updatedMember.status as Agent['status'],
-            };
-          }
-          
-          return agent;
+          const updated = teamMembers.find((m) => m.extension === agent.stationId);
+          return updated ? { ...agent, status: updated.status } : agent;
         })
       );
     }
   }, [teamMembers]);
 
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'available':
-        return 'bg-green-100 text-green-800 hover:bg-green-200 hover:text-green-900';
-      case 'logged out':
-        return 'bg-gray-100 text-gray-800 hover:bg-gray-200 hover:text-gray-900';
-      case 'on break':
-        return 'bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900';
-      case 'waiting':
-        return 'bg-blue-100 text-blue-800 hover:bg-blue-200 hover:text-blue-900';
-      case 'available (on demand)':
-        return 'bg-green-100 text-green-800 hover:bg-green-200 hover:text-green-900';
-      default:
-        return 'bg-gray-100 text-gray-800 hover:bg-gray-200 hover:text-gray-900';
-    }
-  };
-
-
-  const getStatusColorSelection = (status: string): string => {
-    switch (status) {
-      case 'Available':
-        return 'bg-green-500';
-      case 'On Break':
-        return 'bg-red-500';
-      case 'Available (On Demand)':
-        return 'bg-green-500';
-      case 'Logged Out':
-        return 'bg-gray-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
-
-  const getAgentCircleColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'available':
-        return 'bg-gradient-to-r from-green-500 to-green-700 text-white';
-      case 'logged out':
-        return 'bg-gradient-to-r from-gray-500 to-gray-700 text-white';
-      case 'on break':
-        return 'bg-gradient-to-r from-red-500 to-red-700 text-white';
-      case 'waiting':
-        return 'bg-gradient-to-r from-blue-500 to-blue-700 text-white';
-      case 'available (on demand)':
-        return 'bg-gradient-to-r from-green-500 to-green-700 text-white';
-      default:
-        return 'bg-gradient-to-r from-gray-500 to-gray-700 text-white';
-    }
-  };
-
-
-  const filteredAgents = agents.filter(
-    (agent) =>
-      agent.firstname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.lastname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.stationId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-
+  // -------------------------------
+  // API: GET STATUS  
+  // -------------------------------
   const getAgentStatus = async (stationId: string) => {
-    const requestBody = { agent: stationId };
     try {
-      const response = await axios.post('https://10.16.7.96:5050/Get-Agent-Status', requestBody, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-
-      if (response.status === 200) {
-        return response.data.status;
-      }
-    } catch (error: any) {
-      console.error('Get Agent Status API Error:', error);
+      const response = await axios.get('http://10.16.7.91:5001/realtime_agents');
+      const agent = response.data.find((a: any) => a.Extension == stationId);
+      return agent?.status || null;
+    } catch (error) {
+      console.error("Realtime Agents API Error:", error);
       return null;
     }
   };
 
-
+  // -------------------------------
+  // STATUS CHANGE  
+  // -------------------------------
   const handleStatusChange = async (agentId: string, newStatus: Agent['status']) => {
     const agent = agents.find((a) => a.id === agentId);
-    if (!agent) {
-      console.error('Agent not found for ID:', agentId);
-      toast({ title: 'Error', description: 'Agent not found.', variant: 'destructive' });
-      return;
-    }
+    if (!agent) return;
 
-
-    const requestBody = { agent: agent.stationId, status: newStatus };
     try {
-      const response = await axios.post('https://10.16.7.96:5050/Set-Agent-Status', requestBody, {
-        headers: { 'Content-Type': 'application/json' },
-      });
+      await axios.post(
+        'https://10.16.7.96:5050/Set-Agent-Status',
+        { agent: agent.stationId, status: newStatus },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
 
+      updateUserStatus(newStatus);
 
-      if (response.status === 200) {
-        toast({ title: 'Success', description: 'Agent status updated successfully.' });
-        updateUserStatus(newStatus);
-
-
-        const updatedStatus = await getAgentStatus(agent.stationId);
-        if (updatedStatus) {
-          setAgents((prevAgents) =>
-            prevAgents.map((a) => (a.id === agentId ? { ...a, status: updatedStatus } : a))
-          );
-        }
+      const updatedStatus = await getAgentStatus(agent.stationId);
+      if (updatedStatus) {
+        setAgents((prevAgents) =>
+          prevAgents.map((a) =>
+            a.id === agentId ? { ...a, status: updatedStatus } : a
+          )
+        );
       }
     } catch (error) {
-      console.error('Error setting agent status:', error);
-      toast({ title: 'Error', description: 'Failed to update agent status.', variant: 'destructive' });
+      console.error("Status update failed:", error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update agent status.',
+        variant: 'destructive',
+      });
     }
   };
-
 
   const handleRowClick = (agent: Agent) => {
     setSelectedAgent(agent);
     setShowModal(true);
   };
 
-
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg text-gray-600">Loading agents...</div>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-64">Loading agents...</div>;
   }
-
 
   if (!agents.length) {
-    return (
-      <div className="flex flex-col justify-center items-center h-64">
-        <div className="text-lg text-gray-600 mb-2">No agents found.</div>
-        <div className="text-sm text-gray-400">Please check that user.agents is populated</div>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-64">No agents found.</div>;
   }
-
 
   return (
     <div className="space-y-6 h-[calc(100vh-64px)] overflow-y-auto">
@@ -312,6 +237,7 @@ const MyAgents = () => {
               <UserIcon className="w-5 h-5" />
               <span>Agent List ({agents.length})</span>
             </CardTitle>
+
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
               <Input
@@ -323,6 +249,7 @@ const MyAgents = () => {
             </div>
           </div>
         </CardHeader>
+
         <CardContent>
           <Table>
             <TableHeader>
@@ -334,88 +261,113 @@ const MyAgents = () => {
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
-              {filteredAgents.map((agent) => (
-                <TableRow key={agent.id} onClick={() => handleRowClick(agent)} className="cursor-pointer">
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-medium ${getAgentCircleColor(agent.status)}`}>
-                        {agent.firstname.charAt(0)}
-                        {agent.lastname.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900">
+              {agents
+                .filter((agent) =>
+                  `${agent.firstname} ${agent.lastname} ${agent.stationId}`
+                    .toLowerCase()
+                    .includes(searchTerm.toLowerCase())
+                )
+                .map((agent) => (
+                  <TableRow
+                    key={agent.id}
+                    onClick={() => handleRowClick(agent)}
+                    className="cursor-pointer"
+                  >
+                    {/* --------------- Agent Name --------------- */}
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          {agent.firstname[0]}
+                          {agent.lastname[0]}
+                        </div>
+                        <div className="font-medium">
                           {agent.firstname} {agent.lastname}
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono">{agent.stationId}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(agent.status)}>{agent.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
+                    </TableCell>
+
+                    {/* --------------- Station --------------- */}
+                    <TableCell className="font-mono">{agent.stationId}</TableCell>
+
+                    {/* --------------- Status Badge --------------- */}
+                    <TableCell>
+                      <Badge className={`${getStatusBadgeStyle(agent.status)} px-3 py-1 rounded-full`}>
+                        {agent.status}
+                      </Badge>
+                    </TableCell>
+
+                    {/* --------------- In Call --------------- */}
+                    <TableCell>
                       {agent.inCall ? (
-                        <>
-                          <Phone className="w-4 h-4 text-green-500 animate-pulse" />
-                          <span className="text-green-600 text-sm font-medium">Yes</span>
-                        </>
+                        <span className="text-green-600 font-medium">Yes</span>
                       ) : (
-                        <>
-                          <Phone className="w-4 h-4 text-gray-300" />
-                          <span className="text-gray-500 text-sm">No</span>
-                        </>
+                        <span className="text-gray-500">No</span>
                       )}
-                    </div>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      value={agent.status}
-                      onValueChange={(value: Agent['status']) => handleStatusChange(agent.id, value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {agentStatuses.map((status) => (
-                          <SelectItem
-                            key={status}
-                            value={status}
-                            disabled={
-                              (agent.status === 'Available' ||
-                               agent.status === 'Available (On Demand)' ||
-                               agent.status === 'On Break' ||
-                               agent.status === 'Logged Out') &&
-                              (status === 'Available' || status === 'Available (On Demand)')||
-                              (agent.status === 'Logged Out' && status === 'On Break')
-                            }
+                    </TableCell>
+
+                    {/* --------------- Dropdown --------------- */}
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        value={agent.status}
+                        onValueChange={(value) =>
+                          handleStatusChange(agent.id, value as any)
+                        }
+                      >
+                        {/* Trigger with colored pill */}
+                        <SelectTrigger className="w-40">
+                          <div
+                            className={`px-2 py-1 rounded text-sm font-medium ${getStatusBadgeStyle(
+                              agent.status
+                            )}`}
                           >
-                            <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 ${getStatusColorSelection(status)} rounded-full`} />
-                              {status}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                </TableRow>
-              ))}
+                            {agent.status}
+                          </div>
+                        </SelectTrigger>
+
+                        {/* Options with colored dots */}
+                        <SelectContent>
+                          {agentStatuses.map((status) => (
+                            <SelectItem
+                              key={status}
+                              value={status}
+                              disabled={
+                                agent.status === "Logged Out"
+                                  ? status !== "Logged Out"
+                                  : false
+                              }
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`w-3 h-3 rounded-full ${getStatusDotColor(
+                                    status
+                                  )}`}
+                                />
+                                {status}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-
+      {/* --------------- Modal --------------- */}
       {showModal && selectedAgent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Agent Details</h2>
             <p><strong>ID:</strong> {selectedAgent.id}</p>
             <p><strong>Name:</strong> {selectedAgent.firstname} {selectedAgent.lastname}</p>
             <p><strong>Station ID:</strong> {selectedAgent.stationId}</p>
             <p><strong>Status:</strong> {selectedAgent.status}</p>
+
             <Button onClick={() => setShowModal(false)} className="mt-4">
               Close
             </Button>
@@ -425,6 +377,5 @@ const MyAgents = () => {
     </div>
   );
 };
-
 
 export default MyAgents;

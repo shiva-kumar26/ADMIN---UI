@@ -1,36 +1,21 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Edit, Trash2, Plus, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Edit, Trash2, Plus, Search, ArrowUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { LoadingQueues } from '@/components/ui/loading-states';
 import axios from 'axios';
-import CustomPagination from './CustomPagination';
-import { useSidebar } from '@/components/SidebarContext';
+
 interface Queue {
   queue_id: number;
   name: string;
   strategy: string;
   moh_sound: string;
-  announce_sound: string | null;
-  announce_frequency: number | null;
   time_base_score: string;
-  tier_rules_apply: string;
-  tier_rule_wait_second: number;
-  tier_rule_wait_multiply_level: string;
-  tier_rule_no_agent_no_wait: string;
-  discard_abandoned_after: number;
-  abandoned_resume_allowed: string;
   max_wait_time: number;
-  max_wait_time_with_no_agent: number;
-  max_wait_time_with_no_agent_time_reached: number;
   record_template: string;
 }
 
@@ -40,7 +25,7 @@ type SortDirection = 'asc' | 'desc';
 const Queues = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const {isSidebarOpen} = useSidebar()
+
   const [searchTerm, setSearchTerm] = useState('');
   const [queues, setQueues] = useState<Queue[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,47 +58,40 @@ const Queues = () => {
     setCurrentPage(1);
   };
 
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' &&
-      <ArrowUpDown className="w-4 h-4" />
-  };
-
   const sortedQueues = [...queues].sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
+    const aValue = (a as any)[sortField];
+    const bValue = (b as any)[sortField];
 
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       return sortDirection === 'asc'
         ? aValue.localeCompare(bValue)
         : bValue.localeCompare(aValue);
     }
-
     if (typeof aValue === 'number' && typeof bValue === 'number') {
       return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
     }
-
     return 0;
   });
 
   const filteredQueues = sortedQueues.filter(queue =>
-    Object.values(queue).some(value =>
-      value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    queue.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    queue.strategy.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    queue.moh_sound.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredQueues.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, filteredQueues.length);
-  const paginatedQueues = filteredQueues.slice(startIndex, endIndex);
+  const paginatedQueues = filteredQueues.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const handleDeleteQueue = async (queueId: string) => {
     try {
       await axios.delete(`https://10.16.7.96/api/api/queue/${queueId}`);
-      setQueues(prev => prev.filter(queue => queue.queue_id !== parseInt(queueId)));
+      setQueues(prev => prev.filter(q => q.queue_id !== parseInt(queueId)));
       toast({
-        title: "Queue Deleted",
-        description: "Queue has been successfully deleted.",
+        title: "Success",
+        description: "Queue deleted successfully.",
       });
     } catch (error) {
       toast({
@@ -121,7 +99,6 @@ const Queues = () => {
         description: "Failed to delete queue.",
         variant: "destructive",
       });
-      console.error("Error in delete API:", error);
     }
   };
 
@@ -133,272 +110,206 @@ const Queues = () => {
     navigate(`/queue-details/${queueId}`);
   };
 
-  const handleItemsPerPageChange = (value: string) => {
-    setItemsPerPage(parseInt(value));
-    setCurrentPage(1);
-  };
-
   if (loading) {
     return (
-      <div className="space-y-6 mt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Queue Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <LoadingQueues />
-          </CardContent>
-        </Card>
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg font-semibold text-gray-700">Loading queues...</p>
+        </div>
       </div>
     );
   }
 
   return (
-<>
-  <div className="flex flex-col items-center">
-    <div
-      className={`h-[88vh] flex flex-col mx-1 mb-2 ${
-        !isSidebarOpen ? 'w-full ml-10' : 'max-w-[1230px]'
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <h4 className='font-bold'>Queue Management</h4>
-        <Button
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg"
-          onClick={() => navigate('/queue-creation')}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add New Queue
-        </Button>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
 
-      <div className="flex gap-4 mt-4 items-center">
-        <Input
-          placeholder="Search queues..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              Queue Management
+            </h1>
+            <p className="text-gray-600 mt-1">Manage and configure all call queues in your system.</p>
+          </div>
+          <Button
+            onClick={() => navigate('/queue-creation')}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-6 py-3 rounded-xl shadow-lg"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add New Queue
+          </Button>
+        </div>
 
-      <div className="relative overflow-auto scrollbar-hide flex-1">
-        <div className="min-w-full overflow-x-auto scrollbar-hide">
-          <div className="flex flex-col justify-between">
-            <Table
-              className="min-w-full table-auto scrollbar-hide px-2 border border-gray-200 mt-4"
-              style={{ height: 'calc(88vh - 120px)' }}
-            >
-              <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
-                <TableRow className="border-b border-gray-200 h-[40px]">
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[150px]"
-                    onClick={() => handleSort('name')}
-                  >
-                    <span className="flex items-center justify-center gap-1">
-                      Queue Name
-                      {getSortIcon('name')}
-                    </span>
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[120px]"
-                    onClick={() => handleSort('strategy')}
-                  >
-                    Strategy {getSortIcon('strategy')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[130px]"
-                    onClick={() => handleSort('moh_sound')}
-                  >
-                    MOH Sound {getSortIcon('moh_sound')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[160px]"
-                    onClick={() => handleSort('time_base_score')}
-                  >
-                    Time Base Score {getSortIcon('time_base_score')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[150px]"
-                    onClick={() => handleSort('tier_rules_apply')}
-                  >
-                    Tier Rules Apply {getSortIcon('tier_rules_apply')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[180px]"
-                    onClick={() => handleSort('tier_rule_wait_second')}
-                  >
-                    Tier Rule Wait Second {getSortIcon('tier_rule_wait_second')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[200px]"
-                    onClick={() => handleSort('tier_rule_wait_multiply_level')}
-                  >
-                    Tier Rule Wait Multiply Level {getSortIcon('tier_rule_wait_multiply_level')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[200px]"
-                    onClick={() => handleSort('tier_rule_no_agent_no_wait')}
-                  >
-                    Tier Rule No Agent No Wait {getSortIcon('tier_rule_no_agent_no_wait')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[180px]"
-                    onClick={() => handleSort('discard_abandoned_after')}
-                  >
-                    Discard Abandoned After {getSortIcon('discard_abandoned_after')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[180px]"
-                    onClick={() => handleSort('abandoned_resume_allowed')}
-                  >
-                    Abandoned Resume Allowed {getSortIcon('abandoned_resume_allowed')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[140px]"
-                    onClick={() => handleSort('max_wait_time')}
-                  >
-                    Max Wait Time {getSortIcon('max_wait_time')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[200px]"
-                    onClick={() => handleSort('max_wait_time_with_no_agent')}
-                  >
-                    Max Wait Time With No Agent {getSortIcon('max_wait_time_with_no_agent')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[250px]"
-                    onClick={() => handleSort('max_wait_time_with_no_agent_time_reached')}
-                  >
-                    Max Wait Time With No Agent Time Reached {getSortIcon('max_wait_time_with_no_agent_time_reached')}
-                  </TableHead>
-                  <TableHead
-                    className="text-gray-700 font-semibold text-center px-4 py-2 border-b cursor-pointer min-w-[150px]"
-                    onClick={() => handleSort('record_template')}
-                  >
-                    Record Template {getSortIcon('record_template')}
-                  </TableHead>
-                  <TableHead className="text-gray-700 font-semibold text-center px-4 py-2 border-b min-w-[120px]">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
+        {/* Search */}
+        <Card className="bg-white shadow-lg border border-gray-100">
+          <CardContent className="p-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Input
+                placeholder="Search queues by name, strategy, or MOH..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-3 rounded-xl"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-              <TableBody className="overflow-y-auto">
-                {paginatedQueues.map((queue) => (
-                  <TableRow
-                    key={queue.queue_id}
-                    className="hover:bg-gray-50 cursor-pointer border-b border-gray-200"
-                    style={{height:'50px'}}
-                    onDoubleClick={() => handleRowDoubleClick(queue.queue_id.toString())}
-                  >
-                    <TableCell className="text-center px-3 py-2 font-medium">{queue.name}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.strategy}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.moh_sound}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.time_base_score}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.tier_rules_apply}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.tier_rule_wait_second}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.tier_rule_wait_multiply_level}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.tier_rule_no_agent_no_wait}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.discard_abandoned_after}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.abandoned_resume_allowed}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.max_wait_time}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.max_wait_time_with_no_agent}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.max_wait_time_with_no_agent_time_reached}</TableCell>
-                    <TableCell className="text-center px-3 py-2">{queue.record_template}</TableCell>
-                    <TableCell className="text-center px-3 py-2">
-                      <div className="flex space-x-2 justify-center">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEditQueue(queue.queue_id.toString())}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeleteQueue(queue.queue_id.toString())}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+        {/* Queues Table */}
+        <Card className="bg-white shadow-lg border border-gray-100 overflow-hidden">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th 
+                      onClick={() => handleSort('name')} 
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                    >
+                      <div className="flex items-center gap-2">
+                        Queue Name
+                        {sortField === 'name' && <ArrowUpDown className="w-4 h-4" />}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {paginatedQueues.length === 0 && (
-                  <TableRow className="border-b border-gray-200 h-[50px]">
-                    <TableCell colSpan={15} className="text-center px-4 py-2 text-gray-500">
-                      No queues found
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </div>
-
-      <div className="w-full flex justify-between items-center border-t border-gray-200">
-        {/* Record Count */}
-        <span className="text-sm text-gray-600">
-          Showing {startIndex + 1} to {startIndex + paginatedQueues.length} of {filteredQueues.length} Records
-        </span>
-
-        {/* Pagination Controls */}
-        <div className=" px-4 py-3 bg-white sticky bottom-0 z-10">
-          <div className="flex items-center gap-4">
-            {/* Rows per page selector */}
-            <div className="flex items-center gap-1 text-sm text-gray-600">
-              <label htmlFor="itemsPerPage">Rows per page:</label>
-              <select
-                id="itemsPerPage"
-                className="border border-gray-300 rounded px-2 py-1"
-                value={itemsPerPage}
-                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              >
-                {[10, 20, 30, 50].map((num) => (
-                  <option key={num} value={num}>
-                    {num}
-                  </option>
-                ))}
-              </select>
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Strategy</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">MOH Sound</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Time Base Score</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Max Wait Time</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Record Template</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paginatedQueues.map((queue) => (
+                    <tr
+                      key={queue.queue_id}
+                      onDoubleClick={() => handleRowDoubleClick(queue.queue_id.toString())}
+                      className="hover:bg-gray-50 transition-all duration-200 cursor-pointer"
+                    >
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
+                            {queue.name.split('@')[0].slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{queue.name}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <Badge variant="secondary" className="px-4 py-2 font-medium">
+                          {queue.strategy}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-5 text-sm text-gray-600">
+                        {queue.moh_sound || '—'}
+                      </td>
+                      <td className="px-6 py-5 text-sm text-gray-600">
+                        {queue.time_base_score}
+                      </td>
+                      <td className="px-6 py-5 text-sm text-gray-600">
+                        {queue.max_wait_time > 0 ? `${queue.max_wait_time}s` : 'Unlimited'}
+                      </td>
+                      <td className="px-6 py-5 text-sm text-gray-600 truncate max-w-xs">
+                        {queue.record_template || 'None'}
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditQueue(queue.queue_id.toString());
+                            }}
+                            className="hover:bg-blue-50"
+                          >
+                            <Edit className="w-4 h-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteQueue(queue.queue_id.toString());
+                            }}
+                            className="hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {paginatedQueues.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-16 text-gray-500 text-lg">
+                        No queues found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
 
-            {/* Page navigation icons */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className={`px-3 py-1 rounded border text-sm ${
-                  currentPage === 1
-                    ? 'text-gray-400 border-gray-200 cursor-not-allowed'
-                    : 'text-gray-700 border-gray-300 hover:bg-gray-100'
-                }`}
-              >
-                ‹
-              </button>
-              <span className="text-sm text-gray-700">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className={`px-3 py-1 rounded border text-sm ${
-                  currentPage === totalPages
-                    ? 'text-gray-400 border-gray-200 cursor-not-allowed'
-                    : 'text-gray-700 border-gray-300 hover:bg-gray-100'
-                }`}
-              >
-                ›
-              </button>
+            {/* Pagination */}
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50">
+              <div className="text-sm text-gray-600">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+                {Math.min(currentPage * itemsPerPage, filteredQueues.length)} of {filteredQueues.length} queues
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-gray-700">Rows per page:</span>
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(v) => {
+                      setItemsPerPage(Number(v));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-20 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="30">30</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm font-medium text-gray-700">
+                    Page {currentPage} of {totalPages || 1}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages || 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
-  </div>
-</>
   );
 };
 
