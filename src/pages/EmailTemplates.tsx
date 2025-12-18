@@ -1,35 +1,268 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { useEmailTemplates } from '@/hooks/useEmailTemplate';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+// import { useEmailTemplates } from '@/hooks/useEmailTemplate'; // Removed
 import { CreateTemplateDialog } from '@/components/email-templates/CreateTemplateDialog';
 import { EditTemplateDialog } from '@/components/email-templates/EditTemplateDialog';
 import { ViewTemplateDialog } from '@/components/email-templates/ViewTemplateDialog';
 import { TemplatesTable } from '@/components/email-templates/TemplatesTable';
-import { EmailTemplate } from '@/types/EmailTemplate';
+import { EmailTemplate, CreateEmailTemplateRequest, FileOrUrl } from '@/types/EmailTemplate';
 import CustomPagination from './CustomPagination';
 import { useSidebar } from '@/components/SidebarContext';
+import { useToast } from '@/hooks/use-toast';
+
+const API_BASE_URL = 'https://10.16.7.96/api/email_templates';
+
 const EmailTemplates = () => {
-  const {
-    templates,
-    loading,
-    fetchTemplates,
-    getTemplateById,
-    createTemplate,
-    updateTemplate,
-    deleteTemplate,
-    extractFilesFromBody
-  } = useEmailTemplates();
+  // State moved from useEmailTemplate
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
   const { isSidebarOpen } = useSidebar()
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewingTemplate, setViewingTemplate] = useState<EmailTemplate | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<number | null>(null);
   const [itemsPerPage, setItemsPerPage] = useState(5);
+
+  // --- Helper Functions (From Hook) ---
+
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const preparePayload = async (content: string, images: FileOrUrl[], attachments: FileOrUrl[]) => {
+    // 1. Convert all images to base64 objects
+    const processedImages = await Promise.all(images.map(async (img) => ({
+      name: img.name,
+      url: img.file ? await convertFileToBase64(img.file) : img.url
+    })));
+
+    // 2. Convert all attachments to base64 objects
+    const processedAttachments = await Promise.all(attachments.map(async (att) => ({
+      name: att.name,
+      url: att.file ? await convertFileToBase64(att.file) : att.url
+    })));
+
+    // 3. Merge them (backend only has one 'attachments' list)
+    const allFiles = [...processedImages, ...processedAttachments];
+
+    // 4. Construct JSON body per backend expectation
+    const bodyData = {
+      message: content,
+      attachments: allFiles
+    };
+
+    console.log('Final Payload Body:', bodyData);
+    return { body: JSON.stringify(bodyData) };
+  };
+
+  const extractFilesFromBody = (body: string, apiAttachments: FileOrUrl[] = []) => {
+    let content = body;
+    let allFiles: FileOrUrl[] = [...apiAttachments];
+
+    try {
+      const parsed = JSON.parse(body);
+      content = parsed.message || body;
+
+      // If no API attachments provided, check body for legacy/optimistic attachments
+      if (allFiles.length === 0 && parsed.attachments && Array.isArray(parsed.attachments)) {
+        allFiles = parsed.attachments.map((att: any) => ({
+          name: att.name,
+          url: att.url || att.data // Handle variations
+        }));
+      }
+    } catch (e) {
+      // Plain text body
+    }
+
+    // Split into images and attachments based on extension
+    const images: FileOrUrl[] = [];
+    const attachments: FileOrUrl[] = [];
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+
+    allFiles.forEach(file => {
+      const isImg = imageExtensions.some(ext => (file.name || '').toLowerCase().endsWith(ext));
+      if (isImg) {
+        images.push(file);
+      } else {
+        attachments.push(file);
+      }
+    });
+
+    return { content, images, attachments };
+  };
+
+  // --- API Functions (From Hook) ---
+
+  const fetchTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(API_BASE_URL);
+      if (!response.ok) throw new Error('Failed to fetch templates');
+      const data = await response.json();
+      setTemplates(data);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch email templates.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const getTemplateById = async (id: number): Promise<EmailTemplate | null> => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/${id}`);
+      if (!response.ok) throw new Error('Failed to fetch template');
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch email template.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createTemplate = async (data: { name: string; subject: string; content: string; images: FileOrUrl[]; attachments: FileOrUrl[] }) => {
+    setLoading(true);
+    try {
+      const { body } = await preparePayload(data.content, data.images, data.attachments);
+      const payload: CreateEmailTemplateRequest = {
+        name: data.name,
+        subject: data.subject,
+        body
+      };
+
+      const response = await fetch(API_BASE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error('Failed to create template');
+
+      toast({
+        title: "Success",
+        description: "Email template created successfully.",
+        variant: "success"
+      });
+
+      await fetchTemplates();
+      return true;
+    } catch (error) {
+      console.error('Error creating template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create email template.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateTemplate = async (id: number, data: { name: string; subject: string; content: string; images: FileOrUrl[]; attachments: FileOrUrl[] }) => {
+    setLoading(true);
+    try {
+      const { body } = await preparePayload(data.content, data.images, data.attachments);
+      const payload: CreateEmailTemplateRequest = {
+        name: data.name,
+        subject: data.subject,
+        body
+      };
+
+      const response = await fetch(`${API_BASE_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error('Failed to update template');
+
+      toast({
+        title: "Success",
+        description: "Email template updated successfully.",
+        variant: "success"
+      });
+
+      await fetchTemplates();
+      return true;
+    } catch (error) {
+      console.error('Error updating template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update email template.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteTemplate = async (id: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete template');
+
+      toast({
+        title: "Success",
+        description: "Email template deleted successfully.",
+        variant: "success"
+      });
+
+      await fetchTemplates();
+      return true;
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete email template.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- End Helper Functions ---
 
   useEffect(() => {
     fetchTemplates();
@@ -48,6 +281,18 @@ const EmailTemplates = () => {
     setEditingTemplateId(null);
   };
 
+  const handleDeleteClick = async (id: number) => {
+    setDeleteTemplateId(id);
+    return false;
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTemplateId !== null) {
+      await deleteTemplate(deleteTemplateId);
+      setDeleteTemplateId(null);
+    }
+  };
+
   const filteredTemplates = templates.filter(template =>
     (template.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (template.subject ?? '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -56,13 +301,25 @@ const EmailTemplates = () => {
   const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedTemplates = filteredTemplates.slice(startIndex, startIndex + itemsPerPage);
-  if (loading) {
+
+  if (loading && templates.length === 0) { // Only show full loader if no data yet or initial load
     return (
       <div className="flex justify-center items-center h-64">
         <div className="text-lg">Loading templates...</div>
       </div>
     );
   }
+
+  // Debug: Log file counts when viewing template
+  const viewingFiles = viewingTemplate ? extractFilesFromBody(viewingTemplate.body) : { images: [], attachments: [] };
+
+  // Force update viewing template images/attachments from extraction if missing
+  // This ensures the Dialog gets the data even if the object property is empty
+  const enrichedViewingTemplate = viewingTemplate ? {
+    ...viewingTemplate,
+    images: viewingFiles.images,
+    attachments: viewingFiles.attachments
+  } : null;
 
   return (
     <div className="space-y-8 p-6 mt-8 w-full max-w-full overflow-x-hidden">
@@ -98,8 +355,11 @@ const EmailTemplates = () => {
           <div className="overflow-x-auto">
             <TemplatesTable
               templates={paginatedTemplates}
-              onDeleteTemplate={deleteTemplate}
-              onViewTemplate={setViewingTemplate}
+              onDeleteTemplate={handleDeleteClick}
+              onViewTemplate={(template) => {
+                setViewingTemplate(template);
+                // We can debug log here too, logic is same
+              }}
               onEditTemplate={handleEditTemplate}
               extractFilesFromBody={extractFilesFromBody}
               loading={loading}
@@ -132,9 +392,7 @@ const EmailTemplates = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <Button // Update imports if Button not imported, but it is not imported in EmailTemplates.tsx currently? 
-                  // Wait, Button IS NOT imported in EmailTemplates.tsx (Step 207). It uses CustomPagination and CreateTemplateDialog.
-                  // I need to check imports.
+                <Button
                   size="sm"
                   variant="outline"
                   disabled={currentPage === 1}
@@ -160,9 +418,11 @@ const EmailTemplates = () => {
       </Card>
 
       <ViewTemplateDialog
-        template={viewingTemplate}
+        template={enrichedViewingTemplate}
         onClose={() => setViewingTemplate(null)}
         extractFilesFromBody={extractFilesFromBody}
+        initialImages={viewingFiles.images}
+        initialAttachments={viewingFiles.attachments}
       />
 
       <EditTemplateDialog
@@ -173,6 +433,23 @@ const EmailTemplates = () => {
         extractFilesFromBody={extractFilesFromBody}
         loading={loading}
       />
+
+      <AlertDialog open={!!deleteTemplateId} onOpenChange={() => setDeleteTemplateId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the email template.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 focus:ring-red-600">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

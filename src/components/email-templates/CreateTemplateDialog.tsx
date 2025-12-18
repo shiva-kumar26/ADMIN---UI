@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -92,6 +92,9 @@ export const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({ onCr
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create New Email Template</DialogTitle>
+          <DialogDescription>
+            Fill in the details below to create a new email template. You can add images and attachments.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -121,18 +124,18 @@ export const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({ onCr
             />
           </div>
           <div className="flex space-x-4">
-            <Button 
+            <Button
               type="button"
-              variant="outline" 
+              variant="outline"
               onClick={() => imageInputRef.current?.click()}
               className="flex items-center space-x-2"
             >
               <Image className="w-4 h-4" />
               <span>Add Image</span>
             </Button>
-            <Button 
+            <Button
               type="button"
-              variant="outline" 
+              variant="outline"
               onClick={() => attachmentInputRef.current?.click()}
               className="flex items-center space-x-2"
             >
@@ -144,18 +147,24 @@ export const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({ onCr
               type="file"
               accept="image/*"
               multiple
-              onChange={handleImageUpload}
+              onChange={(e) => {
+                handleImageUpload(e);
+                e.target.value = '';
+              }}
               className="hidden"
             />
             <input
               ref={attachmentInputRef}
               type="file"
               multiple
-              onChange={handleAttachmentUpload}
+              onChange={(e) => {
+                handleAttachmentUpload(e);
+                e.target.value = '';
+              }}
               className="hidden"
             />
           </div>
-          
+
           {formData.images.length > 0 && (
             <div>
               <Label>Images</Label>
@@ -176,7 +185,7 @@ export const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({ onCr
               </div>
             </div>
           )}
-          
+
           {formData.attachments.length > 0 && (
             <div>
               <Label>Attachments</Label>
@@ -197,7 +206,7 @@ export const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({ onCr
               </div>
             </div>
           )}
-          
+
           <Button onClick={handleSubmit} className="w-full" disabled={loading}>
             {loading ? 'Creating...' : 'Create Template'}
           </Button>

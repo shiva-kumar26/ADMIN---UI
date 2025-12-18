@@ -23,13 +23,24 @@ export const useEmailTemplates = () => {
 
     // Add images to body
     if (images.length > 0) {
+      console.log('Processing images for payload:', images);
       const imagePromises = images.map(async (img) => {
         if (img.file) {
-          return await convertFileToBase64(img.file);
+          try {
+            const base64 = await convertFileToBase64(img.file);
+            console.log('Converted image to base64 length:', base64.length);
+            return base64;
+          } catch (err) {
+            console.error('Failed to convert image:', err);
+            return null;
+          }
         }
         return img.url;
       });
-      const imageUrls = await Promise.all(imagePromises);
+      const imageUrls = (await Promise.all(imagePromises)).filter(Boolean); // Filter out failed conversions
+
+      console.log('Final image URLs for payload:', imageUrls.length);
+
       if (imageUrls.length === 1) {
         bodyData.image = imageUrls[0];
       } else if (imageUrls.length > 1) {
@@ -39,6 +50,7 @@ export const useEmailTemplates = () => {
 
     // Add attachments to body
     if (attachments.length > 0) {
+      console.log('Processing attachments for payload:', attachments);
       const attachmentPromises = attachments.map(async (att, index) => {
         if (att.file) {
           return {
@@ -56,7 +68,9 @@ export const useEmailTemplates = () => {
       bodyData.attachments = await Promise.all(attachmentPromises);
     }
 
-    return JSON.stringify(bodyData);
+    const jsonBody = JSON.stringify(bodyData);
+    console.log('Final Body Payload (truncated):', jsonBody.substring(0, 500) + '...');
+    return jsonBody;
   };
 
   const extractFilesFromBody = (body: string) => {
@@ -65,6 +79,7 @@ export const useEmailTemplates = () => {
     let attachments: FileOrUrl[] = [];
 
     try {
+      // console.log('Extracting files from body:', body); // Debug log (can be removed later)
       const parsed = JSON.parse(body);
       content = parsed.message || body;
 
@@ -90,15 +105,18 @@ export const useEmailTemplates = () => {
           url: att.url
         }));
       }
-    } catch {
-      // If not JSON, check for base64 patterns
-      const base64Match = content.match(/"image"\s*:\s*"(data:image[^"]+)"/);
+    } catch (e) {
+      console.warn('Failed to parse template body JSON:', e);
+      // If not JSON, check for base64 patterns using a more robust regex
+      // Matches "image":"data:image..." or "image": "data:image..."
+      const base64Match = content.match(/"image"\s*:\s*"(data:image\/[^;]+;base64,[^"]+)"/);
       if (base64Match) {
         images.push({
           name: `embedded-image-${Date.now()}.png`,
           url: base64Match[1]
         });
-        content = content.replace(base64Match[0], '').trim();
+        // Try to clean up the JSON-like part from content if possible, or just leave it
+        // content = content.replace(base64Match[0], '').trim(); 
       }
     }
 

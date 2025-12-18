@@ -30,12 +30,15 @@ export const TemplatesTable: React.FC<TemplatesTableProps> = ({
           <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900">Subject</TableHead>
           <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900">Content Preview</TableHead>
           <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900">Files</TableHead>
+          <TableHead className="px-4 py-3 text-left text-sm font-bold text-gray-900">Created</TableHead>
           <TableHead className="px-4 py-3 text-center text-sm font-bold text-gray-900">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody className="divide-y divide-gray-100">
         {templates.map((template) => {
-          const { content, images, attachments } = extractFilesFromBody(template.body);
+          const { content } = extractFilesFromBody(template.body);
+          const images = template.images && template.images.length > 0 ? template.images : extractFilesFromBody(template.body).images;
+          const attachments = template.attachments && template.attachments.length > 0 ? template.attachments : extractFilesFromBody(template.body).attachments;
 
           return (
             <TableRow key={template.template_id} className="hover:bg-gray-50 transition-colors">
@@ -62,6 +65,9 @@ export const TemplatesTable: React.FC<TemplatesTableProps> = ({
                     </span>
                   )}
                 </div>
+              </TableCell>
+              <TableCell className="px-4 py-3 text-sm">
+                {template.created_at ? new Date(template.created_at).toLocaleDateString() : '-'}
               </TableCell>
               <TableCell className="px-4 py-3">
                 <div className="flex justify-center gap-2">

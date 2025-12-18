@@ -5,7 +5,9 @@ export interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
-  attachments?: EmailAttachment[];
+  attachments?: FileOrUrl[];
+  images?: FileOrUrl[];
+  created_at?: string;
 }
 
 export interface EmailAttachment {
@@ -21,6 +23,7 @@ export interface CreateEmailTemplateRequest {
 }
 
 export interface FileOrUrl {
+  id?: string; // Added optional ID for compatibility
   name: string;
   file?: File;
   url?: string;
