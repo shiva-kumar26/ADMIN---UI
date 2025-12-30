@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mic } from "lucide-react";
+
 import {
   User,
   Bell,
@@ -27,6 +28,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
   const user = authState.user;
   const navigate = useNavigate();
   const location = useLocation();
+  const [isQueuesOpen, setIsQueuesOpen] = React.useState(false);
 
   const handleLogout = () => {
     logout();
@@ -39,13 +41,14 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
     menuItems = [
       { path: '/dashboard', icon: Home, label: 'Dashboard' },
       { path: '/user-management', icon: User, label: 'User Management' },
-      { path: '/queues', icon: Calendar, label: 'Queues' },
+      //{ path: '/queues', icon: Calendar, label: 'Queues' },
       { path: '/chat-templates', icon: MessageSquare, label: 'Chat Templates' },
       { path: '/email-templates', icon: Mail, label: 'Email Templates' },
       { path: '/dialplan', icon: Phone, label: 'Dialplan' },
       { path: '/ivr-flow', icon: GitBranch, label: 'IVR Flow' },
       { path: '/knowledge-base', icon: Database, label: 'Knowledge Base' },
     ];
+    
   } else if (user?.role === 'Supervisor') {
     menuItems = [
       { path: '/supervisor-dashboard', icon: Home, label: 'Home' },
@@ -75,117 +78,137 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
           className="w-20 h-30 object-contain"
         />
       </div>
+{/* Scrollable Menu */}
+<nav className="flex-1 overflow-y-auto px-2">
 
-      {/* Scrollable Menu */}
-      <nav className="flex-1 overflow-y-auto px-2">
-        {/* Admin Menu */}
-        {user?.role === 'Admin' && (
-          <ul className="space-y-1">
-            {menuItems.map((item) => (
-              <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  end={item.path === '/dashboard'}
-                  className={({ isActive }) => {
-                    let active = isActive;
-                    if (item.path === '/user-management') {
-                      active =
-                        location.pathname === '/user-management' ||
-                        location.pathname.startsWith('/user-details') ||
-                        location.pathname === '/user-creation';
-                    } else if (item.path === '/ivr-flow') {
-                      active = location.pathname.startsWith('/ivr-flow');
-                    }
-                    return `flex items-center ${
-                      isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
-                    } py-3 rounded-lg transition-all duration-200 group ${
-                      active
-                        ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-                    }`;
-                  }}
-                  title={!isOpen ? item.label : undefined}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0 text-current" />
-                  {isOpen && <span className="font-medium">{item.label}</span>}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        )}
+  {/* ================= ADMIN MENU ================= */}
+  {user?.role === 'Admin' && (
+    <ul className="space-y-1">
 
-        {/* Supervisor Menu */}
-        {user?.role === 'Supervisor' && (
-          <ul className="space-y-1">
-            {menuItems.map((item) => (
-              <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `flex items-center ${
-                      isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
-                    } py-3 rounded-lg transition-all duration-200 group ${
-                      isActive
-                        ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-                    }`
-                  }
-                  title={!isOpen ? item.label : undefined}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0 text-current" />
-                  {isOpen && <span className="font-medium">{item.label}</span>}
-                </NavLink>
-              </li>
-            ))}
+      {/* EXISTING MENU ITEMS */}
+      {menuItems.map((item) => (
+        <li key={item.path}>
+          <NavLink
+            to={item.path}
+            end={item.path === '/dashboard'}
+            className={({ isActive }) => {
+              let active = isActive;
 
-            {/* Notifications for Supervisor */}
+              if (item.path === '/user-management') {
+                active =
+                  location.pathname === '/user-management' ||
+                  location.pathname.startsWith('/user-details') ||
+                  location.pathname === '/user-creation';
+              }
+
+              if (item.path === '/ivr-flow') {
+                active = location.pathname.startsWith('/ivr-flow');
+              }
+
+              return `flex items-center ${
+                isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
+              } py-3 rounded-lg transition-all duration-200 group ${
+                active
+                  ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
+              }`;
+            }}
+          >
+            <item.icon className="w-5 h-5 flex-shrink-0" />
+            {isOpen && <span className="font-medium">{item.label}</span>}
+          </NavLink>
+        </li>
+      ))}
+
+      {/* ================= QUEUES (COLLAPSIBLE) ================= */}
+      <li className="mt-3">
+
+        {/* QUEUES HEADER */}
+        <div
+          onClick={() => setIsQueuesOpen(!isQueuesOpen)}
+          className={`flex items-center cursor-pointer ${
+            isOpen ? 'px-4' : 'justify-center'
+          } py-3 rounded-lg transition-all
+            text-gray-700 hover:bg-gray-50`}
+        >
+          <Calendar className="w-5 h-5" />
+          {isOpen && (
+            <>
+              <span className="ml-3 font-medium">Queues</span>
+              <span className="ml-auto text-xs">
+                {isQueuesOpen ? '▾' : '▸'}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* QUEUES CHILD ITEMS */}
+        {isQueuesOpen && (
+          <ul className="ml-8 space-y-1">
+
             <li>
               <NavLink
-                to="/notifications"
-                className={({ isActive }) =>
-                  `flex items-center ${
-                    isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
-                  } py-3 rounded-lg transition-all duration-200 group ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-                  }`
-                }
-                title={!isOpen ? 'Notifications' : undefined}
+                to="/queues"
+                className="flex items-center px-3 py-2 rounded-md
+                           text-sm text-gray-600 hover:bg-gray-100 hover:text-blue-600"
               >
-                <Bell className="w-5 h-5 flex-shrink-0 text-current" />
-                {isOpen && <span className="font-medium">Notifications</span>}
+                📞 Call Queues
               </NavLink>
             </li>
-          </ul>
-        )}
 
-        {/* Agent Menu */}
-        {user?.role === 'Agent' && (
-          <ul className="space-y-1">
-            {menuItems.map((item) => (
-              <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `flex items-center ${
-                      isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
-                    } py-3 rounded-lg transition-all duration-200 group ${
-                      isActive
-                        ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-                    }`
-                  }
-                  title={!isOpen ? item.label : undefined}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0 text-current" />
-                  {isOpen && <span className="font-medium">{item.label}</span>}
-                </NavLink>
-              </li>
-            ))}
+            <li>
+              <NavLink
+                to="/email-queues"
+                className="flex items-center px-3 py-2 rounded-md
+                           text-sm text-gray-600 hover:bg-gray-100 hover:text-blue-600"
+              >
+                📧 Email Queues
+              </NavLink>
+            </li>
+
           </ul>
         )}
-      </nav>
+      </li>
+
+    </ul>
+  )}
+
+  {/* ================= SUPERVISOR MENU ================= */}
+  {user?.role === 'Supervisor' && (
+    <ul className="space-y-1">
+      {menuItems.map((item) => (
+        <li key={item.path}>
+          <NavLink
+            to={item.path}
+            className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-50"
+          >
+            <item.icon className="w-5 h-5" />
+            {isOpen && <span className="ml-3">{item.label}</span>}
+          </NavLink>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  {/* ================= AGENT MENU ================= */}
+  {user?.role === 'Agent' && (
+    <ul className="space-y-1">
+      {menuItems.map((item) => (
+        <li key={item.path}>
+          <NavLink
+            to={item.path}
+            className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-50"
+          >
+            <item.icon className="w-5 h-5" />
+            {isOpen && <span className="ml-3">{item.label}</span>}
+          </NavLink>
+        </li>
+      ))}
+    </ul>
+  )}
+
+</nav>
+
 
       {/* Footer: Always at Bottom */}
       <div className="border-t border-gray-200 p-3 mt-auto">
@@ -210,6 +233,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
                 {isOpen && <span className="font-medium">Notifications</span>}
               </NavLink>
 
+           
               <NavLink
                 to="/settings"
                 className={({ isActive }) =>

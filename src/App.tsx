@@ -44,6 +44,7 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import RecordingsPage from './pages/HistoricalMetrics/Recordings/recordingspage';
 import QualityAnalyzerPage from './pages/HistoricalMetrics/QualityAnalyzer/QualityAnalyzerPage';
 import { GlobalUsersProvider } from './contexts/GlobalUsersContext';
+import EmailQueues from "./pages/EmailQueues";
 
 // In your routes:
 <Route path="/quality-analyzer" element={<QualityAnalyzerPage />} />
@@ -258,6 +259,17 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+  path="/email-queues"
+  element={
+    <ProtectedRoute allowedRoles={['Admin']}>
+      <DashboardLayout>
+        <EmailQueues />
+      </DashboardLayout>
+    </ProtectedRoute>
+  }
+/>
+
       <Route
         path="/chat-templates"
         element={
