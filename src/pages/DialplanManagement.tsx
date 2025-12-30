@@ -118,7 +118,10 @@ const DialplanManagement = () => {
   // Handlers
   const handleEdit = (id: number) => navigate(`/dialplan/${id}`);
   const handleView = (id: number) => navigate(`/dialplan/${id}/view`);
-  const handleAddNew = () => navigate('/dialplan-creating');
+  const handleAddNew = () => {
+    const existingDestinations = allDialplans.map((d) => d.dialplan_destination);
+    navigate('/dialplan-creating', { state: { existingDestinations } });
+  };
 
   const handleDelete = (dialplan: Dialplan) => {
     setDeletedItem(dialplan);

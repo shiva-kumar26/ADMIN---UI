@@ -44,7 +44,8 @@ interface DialplanFormProps {
   onSave: () => void;
   onUpdate: () => void;
   details?: any[]; // or use a proper type
-setDetails?: (details: any[]) => void;
+  setDetails?: (details: any[]) => void;
+  existingDestinations?: string[];
 }
 
 const DialplanForm: React.FC<DialplanFormProps> = ({
@@ -57,7 +58,8 @@ const DialplanForm: React.FC<DialplanFormProps> = ({
   onSave,
   onUpdate,
   details = [],
-  setDetails = () => {},
+  setDetails = () => { },
+  existingDestinations = [],
 }) => {
   const { toast } = useToast();
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -66,10 +68,16 @@ const DialplanForm: React.FC<DialplanFormProps> = ({
 
   const handleInputChange = (field: keyof DialplanInputs, value: string) => {
     setInputs({ ...inputs, [field]: value });
+
     // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: undefined });
+    let newErrors = { ...errors, [field]: undefined };
+
+    // Validate confirmation logic for existing destinations
+    if (field === 'number' && createToUpdate && existingDestinations.includes(value)) {
+      newErrors.number = "This extension is already in use";
     }
+
+    setErrors(newErrors);
   };
 
 
@@ -107,9 +115,9 @@ const DialplanForm: React.FC<DialplanFormProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onClose}
               className="h-8 w-8 p-0"
             >
@@ -194,36 +202,36 @@ const DialplanForm: React.FC<DialplanFormProps> = ({
             </Select>
           </div>
 
-        <div className="space-y-2">
-  <Label htmlFor="domain">Domain</Label>
- <Select
-  value={inputs.domain !== "" ? inputs.domain : undefined}
-  onValueChange={(value) => handleInputChange("domain", value)}
-  onOpenChange={(open) => {
-    if (open) handleDomainDropdownClick();
-  }}
->
-  <SelectTrigger>
-    <SelectValue
-      placeholder={
-        domainsLoaded
-          ? domains.length > 0
-            ? "Select domain"
-            : "No domains available"
-          : "Loading domains..."
-      }
-    />
-  </SelectTrigger>
-  <SelectContent>
-    {domains.map((domain) => (
-      <SelectItem key={domain.domain_id} value={String(domain.domain_id)}>
-        {domain.domain_name}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+          <div className="space-y-2">
+            <Label htmlFor="domain">Domain</Label>
+            <Select
+              value={inputs.domain !== "" ? inputs.domain : undefined}
+              onValueChange={(value) => handleInputChange("domain", value)}
+              onOpenChange={(open) => {
+                if (open) handleDomainDropdownClick();
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    domainsLoaded
+                      ? domains.length > 0
+                        ? "Select domain"
+                        : "No domains available"
+                      : "Loading domains..."
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {domains.map((domain) => (
+                  <SelectItem key={domain.domain_id} value={String(domain.domain_id)}>
+                    {domain.domain_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-</div>
+          </div>
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="description">Description</Label>
@@ -236,18 +244,19 @@ const DialplanForm: React.FC<DialplanFormProps> = ({
             />
           </div>
         </div>
-{!createToUpdate && details && setDetails && (
-  <DialplanDetailsTable 
-  details={details}
-  setDetails={setDetails}/>
-)}
+        {!createToUpdate && details && setDetails && (
+          <DialplanDetailsTable
+            details={details}
+            setDetails={setDetails} />
+        )}
 
         <div className="flex justify-end gap-3 mt-6">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={createToUpdate ? onSave : onUpdate}
+            disabled={Object.values(errors).some(e => e !== undefined)}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
           >
             {createToUpdate ? (
