@@ -5,15 +5,47 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useToast } from "@/hooks/use-toast";
+
+export interface Notification {
+  id: string;
+  type: "info" | "warning" | "error" | "success";
+  category: "system" | "user" | "performance" | "security" | "customer-call";
+  detailed_scores?: Record<string, number>;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  priority: "low" | "medium" | "high";
+  call_id?: string;
+  agent_id?: string;
+  extension?: string;
+  transcripts?: Array<{
+    speaker: string;
+    text: string;
+    sentiment?: { label: string; score: number };
+    timestamp: string;
+  }>;
+}
 
 export const WebSocketEventContext = createContext<{
   latestEvent: any | null;
   teamMembers: any[];
   setTeamMembers: React.Dispatch<React.SetStateAction<any[]>>;
-}>({ 
+  notifications: Notification[];
+  setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>;
+  markAsRead: (id: string) => void;
+  deleteNotification: (id: string) => void;
+  clearAllNotifications: () => void;
+}>({
   latestEvent: null,
   teamMembers: [],
-  setTeamMembers: () => {}
+  setTeamMembers: () => { },
+  notifications: [],
+  setNotifications: () => { },
+  markAsRead: () => { },
+  deleteNotification: () => { },
+  clearAllNotifications: () => { },
 });
 
 export const WebSocketEventProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -22,8 +54,34 @@ export const WebSocketEventProvider: React.FC<{ children: React.ReactNode }> = (
   const [latestEvent, setLatestEvent] = useState<any | null>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
+  // Initialize notifications from localStorage
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    try {
+      const stored = localStorage.getItem("admin_notifications");
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error("Failed to load notifications from storage", error);
+      return [];
+    }
+  });
+
+  const { toast } = useToast();
+
+  // Persist notifications whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem("admin_notifications", JSON.stringify(notifications));
+      console.log("[WS Context] Persisted notifications:", notifications.length);
+    } catch (error) {
+      console.error("Failed to save notifications to storage", error);
+    }
+  }, [notifications]);
+
   const originalWsRef = useRef<WebSocket | null>(null);
   const supervisorWsRef = useRef<WebSocket | null>(null);
+
+  // Track processed alerts to prevent duplicates and side-effects in render
+  const processedAlertsRef = useRef<Set<string>>(new Set());
 
   /* -------------------------------------------------
    *  ORIGINAL AGENT WebSocket (team status, calls…)
@@ -105,10 +163,86 @@ export const WebSocketEventProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     if (!latestEvent) return;
 
-    // Supervisor alerts are handled by Notifications.tsx only
-    // Don't process them here for teamMembers
-    if (latestEvent.type === "supervisor_alert" || latestEvent.type === "supervisor_connected") {
-      console.log("Supervisor event received (for notifications only):", latestEvent);
+    // Supervisor alerts are handled within this Effect now
+    if (latestEvent.type === "supervisor_alert") {
+      console.log("Supervisor event received:", latestEvent);
+
+      let title = "Continuous Negative Tone Detected";
+      let message = latestEvent.reason || "Negative tone detected";
+      let priority: "low" | "medium" | "high" = "high";
+
+      // Check if this is QA alert
+      if (latestEvent.alert_category === "qa_analysis") {
+        title = "Low QA Score Detected";
+        message = `QA Score: ${latestEvent.qa_score}/100 — Supervisor review required.`;
+        priority = "high";
+      }
+
+      // Unique ID for the alert event
+      const alertId = latestEvent.call_id;
+
+      console.log("[WS Context] Checking duplicate for ID:", alertId);
+
+      // Check if we already processed this alert ID recently
+      if (processedAlertsRef.current.has(alertId)) {
+        console.log("[WS Context] Duplicate alert ignored:", alertId);
+        return;
+      }
+
+      // Add to processed set
+      processedAlertsRef.current.add(alertId);
+
+      // Cleanup old alerts from ref after 10 seconds to allow re-alerting if needed later
+      setTimeout(() => {
+        processedAlertsRef.current.delete(alertId);
+      }, 10000);
+
+      console.log("[WS Context] Processing new alert. Triggering Toast...");
+
+      // Trigger global toast (Side effect is safe here)
+      if (latestEvent.alert_category === "qa_analysis") {
+        toast({
+          title: "QA Alert",
+          description: `Low QA Score Detected for call ${latestEvent.call_id}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Supervisor Alert",
+          description: `Negative tone in call ${latestEvent.call_id}`,
+          variant: "destructive",
+        });
+      }
+
+      const newNotification: Notification = {
+        id: `${latestEvent.call_id}-${Date.now()}`,
+        type: "warning",
+        category: "customer-call",
+        title,
+        message,
+        timestamp: latestEvent.timestamp || new Date().toISOString(),
+        read: false,
+        priority,
+        call_id: latestEvent.call_id,
+        agent_id: latestEvent.agent_id,
+        extension: latestEvent.extension,
+        transcripts: latestEvent.transcripts || [],
+        detailed_scores: {
+          qa_score: latestEvent.qa_score,
+          ...(latestEvent.detailed_scores || {})
+        },
+      };
+
+      console.log("[WS Context] calling setNotifications with:", newNotification);
+
+      setNotifications((prev) => {
+        console.log("[WS Context] Updater running. Previous count:", prev.length);
+        return [newNotification, ...prev];
+      });
+      return;
+    }
+
+    if (latestEvent.type === "supervisor_connected") {
       return;
     }
 
@@ -174,8 +308,39 @@ export const WebSocketEventProvider: React.FC<{ children: React.ReactNode }> = (
   /* -------------------------------------------------
    *  PROVIDER - Export latestEvent, teamMembers AND setTeamMembers
    * ------------------------------------------------- */
+
+  const markAsRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) =>
+        String(n.id) === String(id) ? { ...n, read: true } : n
+      )
+    );
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+  };
+
+  /* -------------------------------------------------
+   *  PROVIDER
+   * ------------------------------------------------- */
   return (
-    <WebSocketEventContext.Provider value={{ latestEvent, teamMembers, setTeamMembers }}>
+    <WebSocketEventContext.Provider
+      value={{
+        latestEvent,
+        teamMembers,
+        setTeamMembers,
+        notifications,
+        setNotifications,
+        markAsRead,
+        deleteNotification,
+        clearAllNotifications
+      }}
+    >
       {children}
     </WebSocketEventContext.Provider>
   );

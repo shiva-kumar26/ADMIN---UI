@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Mic } from "lucide-react";
+import { Mic, ChevronRight } from "lucide-react";
 
 import {
   User,
@@ -17,6 +17,10 @@ import {
   Activity,
   BarChart2,
   LogOut as LogOutIcon,
+  Server,
+  Clock,
+  Inbox,
+  PhoneCall,
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -28,7 +32,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
   const user = authState.user;
   const navigate = useNavigate();
   const location = useLocation();
-  const [isQueuesOpen, setIsQueuesOpen] = React.useState(false);
+  
+  // State for collapsible sections
+  const [isChatAdminOpen, setIsChatAdminOpen] = React.useState(false);
+  const [isEmailAdminOpen, setIsEmailAdminOpen] = React.useState(false);
+  const [isVoiceAdminOpen, setIsVoiceAdminOpen] = React.useState(false);
 
   const handleLogout = () => {
     logout();
@@ -41,14 +49,9 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
     menuItems = [
       { path: '/dashboard', icon: Home, label: 'Dashboard' },
       { path: '/user-management', icon: User, label: 'User Management' },
-      //{ path: '/queues', icon: Calendar, label: 'Queues' },
-      { path: '/chat-templates', icon: MessageSquare, label: 'Chat Templates' },
-      { path: '/email-templates', icon: Mail, label: 'Email Templates' },
-      { path: '/dialplan', icon: Phone, label: 'Dialplan' },
-      { path: '/ivr-flow', icon: GitBranch, label: 'IVR Flow' },
       { path: '/knowledge-base', icon: Database, label: 'Knowledge Base' },
     ];
-    
+
   } else if (user?.role === 'Supervisor') {
     menuItems = [
       { path: '/supervisor-dashboard', icon: Home, label: 'Home' },
@@ -56,7 +59,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
       { path: '/realtime-reports', icon: Activity, label: 'Realtime Reports' },
       { path: '/historical-reports', icon: BarChart2, label: 'Historical Reports' },
       { path: '/recordings', icon: Mic, label: 'Recordings' },
-        { path: '/quality-analyzer', icon: BarChart2, label: 'Quality Analyzer' }, 
+      { path: '/quality-analyzer', icon: BarChart2, label: 'Quality Analyzer' },
+      { path: '/notifications', icon: Bell, label: 'Alerts' },
     ];
   } else if (user?.role === 'Agent') {
     menuItems = [
@@ -66,207 +70,323 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen ${
-        isOpen ? 'w-64' : 'w-20'
-      } bg-white border-r border-gray-200 z-40 transition-all duration-300 flex flex-col`}
+      className={`fixed left-0 top-0 h-screen ${isOpen ? 'w-64' : 'w-16'
+        } bg-white border-r border-gray-200 z-40 transition-all duration-300 flex flex-col`}
     >
       {/* Logo */}
-      <div className="flex items-center justify-center py-3 px-2">
+      <div className="h-16 flex items-center justify-center border-b border-gray-200 px-4">
         <img
           src="./Zeniusitservices.png"
           alt="logo"
-          className="w-20 h-30 object-contain"
+          className={`${isOpen ? 'h-10' : 'h-8'} w-auto object-contain transition-all duration-300`}
         />
       </div>
-{/* Scrollable Menu */}
-<nav className="flex-1 overflow-y-auto px-2">
 
-  {/* ================= ADMIN MENU ================= */}
-  {user?.role === 'Admin' && (
-    <ul className="space-y-1">
+      {/* Scrollable Menu */}
+      <nav className="flex-1 overflow-y-auto py-4 px-2">
 
-      {/* EXISTING MENU ITEMS */}
-      {menuItems.map((item) => (
-        <li key={item.path}>
-          <NavLink
-            to={item.path}
-            end={item.path === '/dashboard'}
-            className={({ isActive }) => {
-              let active = isActive;
+        {/* ================= ADMIN MENU ================= */}
+        {user?.role === 'Admin' && (
+          <div className="space-y-0.5">
 
-              if (item.path === '/user-management') {
-                active =
-                  location.pathname === '/user-management' ||
-                  location.pathname.startsWith('/user-details') ||
-                  location.pathname === '/user-creation';
-              }
-
-              if (item.path === '/ivr-flow') {
-                active = location.pathname.startsWith('/ivr-flow');
-              }
-
-              return `flex items-center ${
-                isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
-              } py-3 rounded-lg transition-all duration-200 group ${
-                active
-                  ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-              }`;
-            }}
-          >
-            <item.icon className="w-5 h-5 flex-shrink-0" />
-            {isOpen && <span className="font-medium">{item.label}</span>}
-          </NavLink>
-        </li>
-      ))}
-
-      {/* ================= QUEUES (COLLAPSIBLE) ================= */}
-      <li className="mt-3">
-
-        {/* QUEUES HEADER */}
-        <div
-          onClick={() => setIsQueuesOpen(!isQueuesOpen)}
-          className={`flex items-center cursor-pointer ${
-            isOpen ? 'px-4' : 'justify-center'
-          } py-3 rounded-lg transition-all
-            text-gray-700 hover:bg-gray-50`}
-        >
-          <Calendar className="w-5 h-5" />
-          {isOpen && (
-            <>
-              <span className="ml-3 font-medium">Queues</span>
-              <span className="ml-auto text-xs">
-                {isQueuesOpen ? '▾' : '▸'}
-              </span>
-            </>
-          )}
-        </div>
-
-        {/* QUEUES CHILD ITEMS */}
-        {isQueuesOpen && (
-          <ul className="ml-8 space-y-1">
-
-            <li>
+            {/* BASIC MENU ITEMS */}
+            {menuItems.map((item) => (
               <NavLink
-                to="/queues"
-                className="flex items-center px-3 py-2 rounded-md
-                           text-sm text-gray-600 hover:bg-gray-100 hover:text-blue-600"
-              >
-                📞 Call Queues
-              </NavLink>
-            </li>
+                key={item.path}
+                to={item.path}
+                end={item.path === '/dashboard'}
+                className={({ isActive }) => {
+                  let active = isActive;
 
-            <li>
-              <NavLink
-                to="/email-queues"
-                className="flex items-center px-3 py-2 rounded-md
-                           text-sm text-gray-600 hover:bg-gray-100 hover:text-blue-600"
-              >
-                📧 Email Queues
-              </NavLink>
-            </li>
+                  if (item.path === '/user-management') {
+                    active =
+                      location.pathname === '/user-management' ||
+                      location.pathname.startsWith('/user-details') ||
+                      location.pathname === '/user-creation';
+                  }
 
-          </ul>
+                  return `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
+                    } ${!isOpen && 'justify-center'}`;
+                }}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {isOpen && <span>{item.label}</span>}
+              </NavLink>
+            ))}
+
+            {/* ================= CHAT ADMINISTRATION (COLLAPSIBLE) ================= */}
+            <div className="mt-1">
+              <button
+                onClick={() => setIsChatAdminOpen(!isChatAdminOpen)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-700 hover:bg-gray-50 ${!isOpen && 'justify-center'
+                  }`}
+              >
+                <MessageSquare className="w-5 h-5 flex-shrink-0" />
+                {isOpen && (
+                  <>
+                    <span className="flex-1 text-left">Chat Administration</span>
+                    <ChevronRight className={`w-4 h-4 transition-transform ${isChatAdminOpen ? 'rotate-90' : ''}`} />
+                  </>
+                )}
+              </button>
+
+              {isChatAdminOpen && isOpen && (
+                <div className="mt-1 ml-8 space-y-0.5">
+                  <NavLink
+                    to="/chat-templates"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Chat Templates</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
+            {/* ================= EMAIL ADMINISTRATION (COLLAPSIBLE) ================= */}
+            <div className="mt-1">
+              <button
+                onClick={() => setIsEmailAdminOpen(!isEmailAdminOpen)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-700 hover:bg-gray-50 ${!isOpen && 'justify-center'
+                  }`}
+              >
+                <Mail className="w-5 h-5 flex-shrink-0" />
+                {isOpen && (
+                  <>
+                    <span className="flex-1 text-left">Email Administration</span>
+                    <ChevronRight className={`w-4 h-4 transition-transform ${isEmailAdminOpen ? 'rotate-90' : ''}`} />
+                  </>
+                )}
+              </button>
+
+              {isEmailAdminOpen && isOpen && (
+                <div className="mt-1 ml-8 space-y-0.5">
+                  <NavLink
+                    to="/email-templates"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Email Templates</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/email-servers"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <Server className="w-4 h-4" />
+                    <span>Email Servers</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/email-queues"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Email Queues</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/queue-settings"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>Queue Settings</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/server-inbox"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <Inbox className="w-4 h-4" />
+                    <span>Server Inbox</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
+            {/* ================= VOICE ADMINISTRATION (COLLAPSIBLE) ================= */}
+            <div className="mt-1">
+              <button
+                onClick={() => setIsVoiceAdminOpen(!isVoiceAdminOpen)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-700 hover:bg-gray-50 ${!isOpen && 'justify-center'
+                  }`}
+              >
+                <PhoneCall className="w-5 h-5 flex-shrink-0" />
+                {isOpen && (
+                  <>
+                    <span className="flex-1 text-left">Voice Administration</span>
+                    <ChevronRight className={`w-4 h-4 transition-transform ${isVoiceAdminOpen ? 'rotate-90' : ''}`} />
+                  </>
+                )}
+              </button>
+
+              {isVoiceAdminOpen && isOpen && (
+                <div className="mt-1 ml-8 space-y-0.5">
+                  <NavLink
+                    to="/dialplan"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>Dialplan</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/ivr-flow"
+                    className={({ isActive }) => {
+                      const active = location.pathname.startsWith('/ivr-flow');
+                      return `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${active
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`;
+                    }}
+                  >
+                    <GitBranch className="w-4 h-4" />
+                    <span>IVR Flow</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/queues"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>Call Queues</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
+          </div>
         )}
-      </li>
 
-    </ul>
-  )}
-
-  {/* ================= SUPERVISOR MENU ================= */}
-  {user?.role === 'Supervisor' && (
-    <ul className="space-y-1">
-      {menuItems.map((item) => (
-        <li key={item.path}>
-          <NavLink
-            to={item.path}
-            className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-50"
-          >
-            <item.icon className="w-5 h-5" />
-            {isOpen && <span className="ml-3">{item.label}</span>}
-          </NavLink>
-        </li>
-      ))}
-    </ul>
-  )}
-
-  {/* ================= AGENT MENU ================= */}
-  {user?.role === 'Agent' && (
-    <ul className="space-y-1">
-      {menuItems.map((item) => (
-        <li key={item.path}>
-          <NavLink
-            to={item.path}
-            className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-50"
-          >
-            <item.icon className="w-5 h-5" />
-            {isOpen && <span className="ml-3">{item.label}</span>}
-          </NavLink>
-        </li>
-      ))}
-    </ul>
-  )}
-
-</nav>
-
-
-      {/* Footer: Always at Bottom */}
-      <div className="border-t border-gray-200 p-3 mt-auto">
-        <div className="space-y-1">
-          {/* Admin Extra Links */}
-          {user?.role === 'Admin' && (
-            <>
+        {/* ================= SUPERVISOR MENU ================= */}
+        {user?.role === 'Supervisor' && (
+          <div className="space-y-0.5">
+            {menuItems.map((item) => (
               <NavLink
-                to="/notifications"
+                key={item.path}
+                to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center ${
-                    isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
-                  } py-3 rounded-lg transition-all duration-200 group ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-                  }`
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
+                  } ${!isOpen && 'justify-center'}`
                 }
-                title={!isOpen ? 'Notifications' : undefined}
               >
-                <Bell className="w-5 h-5 flex-shrink-0 text-current" />
-                {isOpen && <span className="font-medium">Notifications</span>}
+                <item.icon className="w-5 h-5" />
+                {isOpen && <span>{item.label}</span>}
               </NavLink>
+            ))}
+          </div>
+        )}
 
-           
+        {/* ================= AGENT MENU ================= */}
+        {user?.role === 'Agent' && (
+          <div className="space-y-0.5">
+            {menuItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
+                  } ${!isOpen && 'justify-center'}`
+                }
+              >
+                <item.icon className="w-5 h-5" />
+                {isOpen && <span>{item.label}</span>}
+              </NavLink>
+            ))}
+          </div>
+        )}
+
+      </nav>
+
+
+      {/* Footer */}
+      <div className="border-t border-gray-200 p-2">
+        {(user?.role === 'Admin' || user?.role === 'Supervisor') && (
+          <div className="space-y-0.5">
+            <NavLink
+              to="/notifications"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-700 hover:bg-gray-50'
+                } ${!isOpen && 'justify-center'}`
+              }
+            >
+              <Bell className="w-5 h-5" />
+              {isOpen && <span>Notifications</span>}
+            </NavLink>
+
+            {user?.role === 'Admin' && (
               <NavLink
                 to="/settings"
                 className={({ isActive }) =>
-                  `flex items-center ${
-                    isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
-                  } py-3 rounded-lg transition-all duration-200 group ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-600 shadow-sm border border-blue-200'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
-                  }`
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
+                  } ${!isOpen && 'justify-center'}`
                 }
-                title={!isOpen ? 'Settings' : undefined}
               >
-                <Settings className="w-5 h-5 flex-shrink-0 text-current" />
-                {isOpen && <span className="font-medium">Settings</span>}
+                <Settings className="w-5 h-5" />
+                {isOpen && <span>Settings</span>}
               </NavLink>
-            </>
-          )}
-
-          {/* LOGOUT: Always Visible, Red on Hover */}
-          <div
-            onClick={handleLogout}
-            className={`flex items-center cursor-pointer ${
-              isOpen ? 'space-x-3 px-4' : 'justify-center px-2'
-            } py-3 rounded-lg transition-all duration-200 group
-              text-gray-600 hover:bg-red-50 hover:text-red-600
-              border border-transparent hover:border-red-200`}
-            title="Logout"
-          >
-            <LogOutIcon className="w-5 h-5 flex-shrink-0 text-current group-hover:text-red-600" />
-            {isOpen && <span className="font-medium group-hover:text-red-600">Logout</span>}
+            )}
           </div>
-        </div>
+        )}
+
+        <button
+          onClick={handleLogout}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600 mt-1 ${!isOpen && 'justify-center'
+            }`}
+        >
+          <LogOutIcon className="w-5 h-5" />
+          {isOpen && <span>Logout</span>}
+        </button>
       </div>
     </aside>
   );

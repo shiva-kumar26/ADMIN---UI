@@ -44,37 +44,26 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { WebSocketEventContext } from "@/contexts/WebSocketContext";
-
-interface Notification {
-  id: string;
-  type: "info" | "warning" | "error" | "success";
-  category: "system" | "user" | "performance" | "security" | "customer-call";
-  detailed_scores?: Record<string, number>;
-  title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-  priority: "low" | "medium" | "high";
-  call_id?: string;
-  agent_id?: string;
-  extension?: string;
-  transcripts?: Array<{
-    speaker: string;
-    text: string;
-    sentiment?: { label: string; score: number };
-    timestamp: string;
-  }>;
-}
+import { WebSocketEventContext, useWebSocketEvent, Notification } from "@/contexts/WebSocketContext";
 
 const Notifications = () => {
   const { toast } = useToast();
-  const { latestEvent } = useContext(WebSocketEventContext);
+  const {
+    notifications,
+    setNotifications,
+    markAsRead,
+    deleteNotification,
+    clearAllNotifications
+  } = useWebSocketEvent();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  // notifications state is now global
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    console.log("[Notifications Page] Current notifications:", notifications);
+  }, [notifications]);
 
   const [notificationSettings, setNotificationSettings] = useState({
     emailNotifications: true,
@@ -169,68 +158,7 @@ const Notifications = () => {
     }
   };
 
-  // WebSocket: Listen for supervisor_alert
-  useEffect(() => {
-    if (!latestEvent || latestEvent.type !== "supervisor_alert") return;
 
-    let title = "Continuous Negative Tone Detected";
-    let message = latestEvent.reason || "Negative tone detected";
-    let priority: "low" | "medium" | "high" = "high";
-
-    // 🔥 Check if this is QA alert
-    if (latestEvent.alert_category === "qa_analysis") {
-      title = "Low QA Score Detected";
-      message = `QA Score: ${latestEvent.qa_score}/100 — Supervisor review required.`;
-      priority = "high";
-    }
-
-    const newNotification: Notification = {
-      id: `${latestEvent.call_id}-${Date.now()}`,
-      type: "warning",
-      category: "customer-call",
-      title,
-      message,
-      timestamp: latestEvent.timestamp || new Date().toISOString(),
-      read: false,
-      priority,
-      call_id: latestEvent.call_id,
-      agent_id: latestEvent.agent_id,
-      extension: latestEvent.extension,
-      transcripts: latestEvent.transcripts || [],
-      detailed_scores: {
-        qa_score: latestEvent.qa_score,
-        ...(latestEvent.detailed_scores || {})
-      },
-    };
-
-    setNotifications((prev) => {
-      const exists = prev.some(
-        (n) =>
-          n.call_id === newNotification.call_id &&
-          Math.abs(
-            new Date(n.timestamp).getTime() - new Date(newNotification.timestamp).getTime()
-          ) < 5000
-      );
-      if (exists) return prev;
-      return [newNotification, ...prev];
-    });
-
-    // ✅ FIX: Proper popup based on alert type
-    if (latestEvent.alert_category === "qa_analysis") {
-      toast({
-        title: "QA Alert",
-        description: `Low QA Score Detected for call ${latestEvent.call_id}`,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Supervisor Alert",
-        description: `Negative tone in call ${latestEvent.call_id}`,
-        variant: "destructive",
-      });
-    }
-
-  }, [latestEvent, toast]);
 
 
   const getIcon = (type: string) => {
@@ -315,13 +243,7 @@ const Notifications = () => {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        String(n.id) === String(id) ? { ...n, read: true } : n
-      )
-    );
-  }, []);
+
 
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -331,15 +253,9 @@ const Notifications = () => {
     });
   };
 
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    toast({ title: "Deleted", description: "Notification removed." });
-  };
 
-  const clearAllNotifications = () => {
-    setNotifications([]);
-    toast({ title: "Cleared", description: "All notifications removed." });
-  };
+
+
 
   const TabTrigger = ({ value, icon: Icon, label }: { value: string, icon: any, label: string }) => (
     <TabsTrigger
@@ -381,7 +297,10 @@ const Notifications = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={clearAllNotifications}
+            onClick={() => {
+              clearAllNotifications();
+              toast({ title: "Cleared", description: "All notifications removed." });
+            }}
             disabled={notifications.length === 0}
             className="bg-white hover:bg-red-50 text-red-600 border-red-100 hover:border-red-200"
           >
@@ -685,8 +604,8 @@ const Notifications = () => {
                 <div
                   key={idx}
                   className={`p-4 rounded-xl border ${entry.speaker === "Customer"
-                      ? "bg-red-50/50 border-red-100"
-                      : "bg-blue-50/50 border-blue-100"
+                    ? "bg-red-50/50 border-red-100"
+                    : "bg-blue-50/50 border-blue-100"
                     }`}
                 >
                   <div className="flex items-center justify-between mb-2">

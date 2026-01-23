@@ -1,263 +1,293 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { emailApi } from "@/api/emailApi";
 import { Button } from "@/components/ui/button";
-import AssignAgentsModal from "@/components/AssignAgentsModal";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Plus, X, Trash2, Settings as SettingsIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
-type EmailQueue = {
-  email: string;
-  password: string;
+type EmailServer = {
+  id: number;
+  username: string;
+};
+
+type Queue = {
+  id: number;
+  queue_name: string;
 };
 
 export default function EmailQueues() {
-  const [queues, setQueues] = useState<EmailQueue[]>([]);
-  const [selectedQueue, setSelectedQueue] = useState<string | null>(null);
+  const [servers, setServers] = useState<EmailServer[]>([]);
+  const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+  const [queues, setQueues] = useState<Queue[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showAddQueue, setShowAddQueue] = useState(false);
+  const [newQueueName, setNewQueueName] = useState("");
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  // Add new queue form
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showNewPwd, setShowNewPwd] = useState(false);
-
-  // Edit states
-  const [editingEmail, setEditingEmail] = useState<string | null>(null);
-  const [editEmail, setEditEmail] = useState("");
-  const [editPassword, setEditPassword] = useState("");
-  const [showEditPwd, setShowEditPwd] = useState(false);
-
-  // Load queues
+  // Load email servers
   useEffect(() => {
-    axios
-      .get("http://10.16.7.91:8899/email-queues")
-      .then((res) => setQueues(res.data));
+    loadServers();
   }, []);
 
-  // Create queue
+  // Load queues when server is selected
+  useEffect(() => {
+    if (selectedServerId) {
+      loadQueues(selectedServerId);
+    }
+  }, [selectedServerId]);
+
+  const loadServers = async () => {
+    try {
+      const res = await emailApi.get("/email-servers");
+      setServers(res.data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load email servers",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadQueues = async (serverId: number) => {
+    try {
+      setLoading(true);
+      const res = await emailApi.get(`/email-queues/by-server/${serverId}`);
+      setQueues(res.data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load queues",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const createQueue = async () => {
-    if (!newEmail || !newPassword) {
-      alert("Please fill both email and password");
+    if (!selectedServerId || !newQueueName) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a queue name",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      await axios.post("http://10.16.7.91:8899/email-queues", {
-        queue_email: newEmail,
-        password: newPassword,
+      await emailApi.post("/email-queues", {
+        queue_name: newQueueName,
+        server_id: selectedServerId,
       });
 
-      setQueues((prev) => [...prev, { email: newEmail, password: newPassword }]);
-      setNewEmail("");
-      setNewPassword("");
-      setShowAddForm(false);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to add queue");
+      toast({
+        title: "Success",
+        description: "Queue created successfully",
+      });
+
+      setNewQueueName("");
+      setShowAddQueue(false);
+      loadQueues(selectedServerId);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create queue",
+        variant: "destructive",
+      });
     }
   };
 
-  // Delete queue
-  const deleteQueue = async (email: string) => {
-    const confirmDelete = window.confirm(`Are you sure you want to delete ${email}?`);
-    if (!confirmDelete) return;
-
-    try {
-      await axios.delete(`http://10.16.7.91:8899/email-queues/${email}`);
-      setQueues((prev) => prev.filter((q) => q.email !== email));
-    } catch (err) {
-      console.error(err);
-      alert("Failed to delete queue");
-    }
-  };
-
-  // Start editing
-  const startEditing = (queue: EmailQueue) => {
-    setEditingEmail(queue.email);
-    setEditEmail(queue.email);
-    setEditPassword(queue.password);
-    setShowEditPwd(false);
-  };
-
-  // Save edit
-  const saveEdit = async (originalEmail: string) => {
-    if (!editEmail || !editPassword) {
-      alert("Please fill both fields");
+  const deleteQueue = async (queueId: number, queueName: string) => {
+    if (!confirm(`Are you sure you want to delete queue "${queueName}"?`)) {
       return;
     }
 
     try {
-      await axios.put(`http://10.16.7.91:8899/email-queues/${originalEmail}`, {
-        email: editEmail,
-        password: editPassword,
+      await emailApi.delete(`/email-queues/${queueId}`);
+
+      toast({
+        title: "Success",
+        description: `Queue "${queueName}" deleted successfully`,
       });
 
-      setQueues((prev) =>
-        prev.map((q) =>
-          q.email === originalEmail
-            ? { email: editEmail, password: editPassword }
-            : q
-        )
-      );
-      setEditingEmail(null);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update queue");
+      // Refresh the queue list
+      if (selectedServerId) {
+        loadQueues(selectedServerId);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete queue",
+        variant: "destructive",
+      });
     }
   };
 
-  // Mask password
-  const maskPassword = (pwd: string) => {
-    if (!pwd) return "";
-    if (pwd.length <= 4) return "****";
-    return "*".repeat(pwd.length - 4) + pwd.slice(-4);
+  const configureQueue = (queueId: number) => {
+    navigate("/queue-settings");
   };
 
   return (
-    <div className="p-6 min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Email Queues</h1>
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Email Queues</h1>
+          <p className="text-gray-600 mt-1">Create and manage email queues for your servers</p>
+        </div>
+      </div>
 
-        {/* Add Queue Section */}
-        <div className="mb-6">
-          <Button
-            size="lg"
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="mb-4"
+      {/* Server Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Email Server</CardTitle>
+          <CardDescription>Choose a server to view and manage its queues</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={selectedServerId?.toString()}
+            onValueChange={(value) => setSelectedServerId(parseInt(value))}
           >
-            {showAddForm ? "Cancel" : "+ Add Email Queue"}
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select an email server" />
+            </SelectTrigger>
+            <SelectContent>
+              {servers.map((server) => (
+                <SelectItem key={server.id} value={server.id.toString()}>
+                  {server.username}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {/* Add Queue Button */}
+      {selectedServerId && (
+        <div className="flex justify-end">
+          <Button onClick={() => setShowAddQueue(!showAddQueue)} className="gap-2">
+            {showAddQueue ? (
+              <>
+                <X className="w-4 h-4" /> Cancel
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" /> Add Queue
+              </>
+            )}
           </Button>
+        </div>
+      )}
 
-          {showAddForm && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-              <h2 className="text-xl font-semibold mb-6">Add New Email Queue</h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Queue Email
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                    placeholder="example@gmail.com"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                  />
-                </div>
+      {/* Add Queue Form */}
+      {showAddQueue && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Queue</CardTitle>
+            <CardDescription>Add a new email queue to this server</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="queue_name">Queue Name</Label>
+              <Input
+                id="queue_name"
+                placeholder="e.g., Support, Sales, Billing"
+                value={newQueueName}
+                onChange={(e) => setNewQueueName(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowAddQueue(false)}>
+                Cancel
+              </Button>
+              <Button onClick={createQueue}>Create Queue</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password / App Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showNewPwd ? "text" : "password"}
-                      className="w-full px-4 py-3 pr-32 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                    />
+      {/* Queues List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      ) : queues.length === 0 && selectedServerId ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <Plus className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Queues Found</h3>
+            <p className="text-gray-600 mb-4">Create your first queue to get started</p>
+            <Button onClick={() => setShowAddQueue(true)} className="gap-2">
+              <Plus className="w-4 h-4" /> Create Queue
+            </Button>
+          </CardContent>
+        </Card>
+      ) : selectedServerId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Queues ({queues.length})</CardTitle>
+            <CardDescription>Manage queues for the selected server</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {queues.map((queue) => (
+                <div
+                  key={queue.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span className="text-blue-600 font-semibold">
+                        {queue.queue_name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{queue.queue_name}</h4>
+                      <p className="text-sm text-gray-500">Queue ID: {queue.id}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
-                      className="absolute right-2 top-1/2 -translate-y-1/2"
-                      onClick={() => setShowNewPwd(!showNewPwd)}
+                      size="sm"
+                      onClick={() => configureQueue(queue.id)}
+                      className="gap-2"
                     >
-                      {showNewPwd ? "Hide" : "Show"}
+                      <SettingsIcon className="w-4 h-4" />
+                      Configure
                     </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <Button size="lg" onClick={createQueue}>
-                  Save New Queue
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Queue List */}
-        <div className="space-y-4">
-          {queues.map((q) => (
-            <div
-              key={q.email}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 hover:shadow-md transition-shadow"
-            >
-              {editingEmail === q.email ? (
-                <div>
-                  <h3 className="text-xl font-semibold mb-6">Edit Email Queue</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Queue Email
-                      </label>
-                      <input
-                        type="email"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                        value={editEmail}
-                        onChange={(e) => setEditEmail(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showEditPwd ? "text" : "password"}
-                          className="w-full px-4 py-3 pr-32 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                          value={editPassword}
-                          onChange={(e) => setEditPassword(e.target.value)}
-                        />
-                        <Button
-                          variant="outline"
-                          className="absolute right-2 top-1/2 -translate-y-1/2"
-                          onClick={() => setShowEditPwd(!showEditPwd)}
-                        >
-                          {showEditPwd ? "Hide" : "Show"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-8 flex justify-end gap-4">
-                    <Button variant="outline" onClick={() => setEditingEmail(null)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={() => saveEdit(q.email)}>Save Changes</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                  <div className="flex-1">
-                    <div className="text-xl font-semibold text-gray-900">{q.email}</div>
-                    <div className="text-sm text-gray-500 mt-2">
-                      Password: {maskPassword(q.password)}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <Button onClick={() => setSelectedQueue(q.email)}>
-                      Assign Agents
-                    </Button>
-                    <Button variant="outline" onClick={() => startEditing(q)}>
-                      Edit
-                    </Button>
-                    <Button variant="destructive" onClick={() => deleteQueue(q.email)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteQueue(queue.id, queue.queue_name)}
+                      className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
                       Delete
                     </Button>
                   </div>
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Assign Agents Modal */}
-      {selectedQueue && (
-        <AssignAgentsModal
-          queueEmail={selectedQueue}
-          onClose={() => setSelectedQueue(null)}
-        />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <SettingsIcon className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a Server</h3>
+            <p className="text-gray-600">Choose an email server to view and manage its queues</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

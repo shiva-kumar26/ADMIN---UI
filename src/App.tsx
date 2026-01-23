@@ -45,6 +45,10 @@ import RecordingsPage from './pages/HistoricalMetrics/Recordings/recordingspage'
 import QualityAnalyzerPage from './pages/HistoricalMetrics/QualityAnalyzer/QualityAnalyzerPage';
 import { GlobalUsersProvider } from './contexts/GlobalUsersContext';
 import EmailQueues from "./pages/EmailQueues";
+import EmailServers from "@/pages/EmailServers";
+import QueueSettings from "@/pages/QueueSettings";
+import ServerInbox from "@/pages/ServerInbox";
+import { WebSocketEventProvider } from "@/contexts/WebSocketContext";
 
 // In your routes:
 <Route path="/quality-analyzer" element={<QualityAnalyzerPage />} />
@@ -260,15 +264,45 @@ const AppRoutes = () => {
         }
       />
       <Route
-  path="/email-queues"
-  element={
-    <ProtectedRoute allowedRoles={['Admin']}>
-      <DashboardLayout>
-        <EmailQueues />
-      </DashboardLayout>
-    </ProtectedRoute>
-  }
-/>
+        path="/email-queues"
+        element={
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <DashboardLayout>
+              <EmailQueues />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/email-servers"
+        element={
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <DashboardLayout>
+              <EmailServers />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/queue-settings"
+        element={
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <DashboardLayout>
+              <QueueSettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/server-inbox"
+        element={
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <DashboardLayout>
+              <ServerInbox />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/chat-templates"
@@ -415,9 +449,11 @@ const App = () => (
         <MetricsCountsProvider>
           <RealtimeMetricsProvider>
             <GlobalUsersProvider>
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
+              <WebSocketEventProvider>
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+              </WebSocketEventProvider>
             </GlobalUsersProvider>
           </RealtimeMetricsProvider>
         </MetricsCountsProvider>
