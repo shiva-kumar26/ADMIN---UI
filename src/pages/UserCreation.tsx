@@ -14,6 +14,7 @@ import {
 import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
+import { useGlobalUsers } from '@/contexts/GlobalUsersContext'; // Import Global Users Context
 import axios from 'axios';
 
 interface ValidationErrors {
@@ -24,7 +25,7 @@ interface ValidationErrors {
   hostname?: string;
   extension?: string;
   queues?: string;
-  type?:string;
+  type?: string;
   role?: string;
   level?: string;
   position?: string;
@@ -38,6 +39,7 @@ interface ValidationErrors {
 const UserCreation = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { users: existingUsers } = useGlobalUsers(); // Get users from context
 
   const [newUser, setNewUser] = useState({
     role: [] as string[],
@@ -49,7 +51,7 @@ const UserCreation = () => {
     extension: '',
     port: '',
     stationId: '',
-    type:'',
+    type: '',
     queues: [] as string[],
     supervisor: '',
     level: '',
@@ -63,7 +65,7 @@ const UserCreation = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [queues, setQueues] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
-  const [existingUsers, setExistingUsers] = useState([]);
+  // const [existingUsers, setExistingUsers] = useState([]); // Removed local state
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isValidating, setIsValidating] = useState(false);
 
@@ -74,7 +76,7 @@ const UserCreation = () => {
       .catch(err => console.error("Failed to fetch queues:", err));
 
     fetchSupervisors();
-    fetchExistingUsers();
+    // fetchExistingUsers(); // Removed fetch call
   }, []);
 
   const fetchSupervisors = async () => {
@@ -90,7 +92,7 @@ const UserCreation = () => {
     }
   };
 
-  const fetchExistingUsers = async () => {
+  /* const fetchExistingUsers = async () => {
     try {
       const response = await fetch('https://10.16.7.96/api/directory_search/');
       const userData = await response.json();
@@ -98,7 +100,7 @@ const UserCreation = () => {
     } catch (error) {
       console.error("Failed to fetch existing users:", error);
     }
-  };
+  }; */
 
   const handleRoleChange = (selectedRoles: string[]) => {
     let updatedRoles = [...selectedRoles];
@@ -141,7 +143,7 @@ const UserCreation = () => {
     if (!nameRegex.test(name)) return 'First name can only contain letters, spaces, and hyphens (max 50 characters)';
     return null;
   };
-    const validateLastName = (name: string) => {
+  const validateLastName = (name: string) => {
     const nameRegex = /^[a-zA-Z\s-]{1,50}$/;
     if (!name.trim()) return 'Last name is required';
     if (!nameRegex.test(name)) return 'Last name can only contain letters, spaces, and hyphens (max 50 characters)';
@@ -163,8 +165,17 @@ const UserCreation = () => {
 
   const validateUsername = (username: string) => {
     if (!username.trim()) return 'User name is required';
+    // Check against existingUsers from context
     const isUnique = !existingUsers.some(user => user.user_id === username);
     if (!isUnique) return 'Username already exists. Please choose a different username';
+    return null;
+  };
+
+  const validateExtension = (extension: string) => {
+    if (!extension.trim()) return 'Extension number is required';
+    // Check against existingUsers from context
+    const isUnique = !existingUsers.some(user => user.extension === extension);
+    if (!isUnique) return 'Extension already in use';
     return null;
   };
 
@@ -181,7 +192,12 @@ const UserCreation = () => {
 
     // Agent-specific required fields
     if (newUser.role.includes('Agent')) {
-      if (!newUser.extension.trim()) newErrors.extension = 'Extension number is required';
+      if (!newUser.extension.trim()) {
+        newErrors.extension = 'Extension number is required';
+      } else {
+        const extError = validateExtension(newUser.extension);
+        if (extError) newErrors.extension = extError;
+      }
       if (!newUser.type.trim()) newErrors.type = 'Type is required';
       if (newUser.queues.length === 0) newErrors.queues = 'At least one queue must be selected';
       if (!newUser.level.trim()) newErrors.level = 'Level is required';
@@ -210,20 +226,32 @@ const UserCreation = () => {
   const handleInputChange = (field: keyof typeof newUser, value: string) => {
     setNewUser(prev => ({ ...prev, [field]: value }));
 
-    if (errors[field as keyof ValidationErrors]) {
-      setErrors(prev => {
-        const newErrors = { ...prev, [field]: undefined };
-        if (field === 'username' && value.trim()) {
-          const usernameError = validateUsername(value);
-          if (usernameError) newErrors.username = usernameError;
-        }
-        if (field === 'password' && value.trim()) {
-          const passwordError = validatePassword(value);
-          if (passwordError) newErrors.password = passwordError;
-        }
-        return newErrors;
-      });
+    // Debugging logs
+    if (field === 'username') {
+      console.log(`Checking username: ${value}`, existingUsers.map(u => u.user_id));
     }
+    if (field === 'extension') {
+      console.log(`Checking extension: ${value}`, existingUsers.map(u => u.extension));
+    }
+
+    // Always validate on change to give immediate feedback, not just when error exists
+    setErrors(prev => {
+      const newErrors = { ...prev, [field]: undefined };
+
+      if (field === 'username' && value.trim()) {
+        const usernameError = validateUsername(value);
+        if (usernameError) newErrors.username = usernameError;
+      }
+      if (field === 'password' && value.trim()) {
+        const passwordError = validatePassword(value);
+        if (passwordError) newErrors.password = passwordError;
+      }
+      if (field === 'extension' && value.trim()) {
+        const extensionError = validateExtension(value);
+        if (extensionError) newErrors.extension = extensionError;
+      }
+      return newErrors;
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -245,10 +273,10 @@ const UserCreation = () => {
     }
 
     const toInt = (val: string) => val && !isNaN(Number(val)) ? parseInt(val, 10) : 0;
-    
+
 
     const handleUser = {
-      
+
       firstname: newUser.firstName,
       lastname: newUser.lastName,
       hostname: newUser.hostname,
@@ -591,287 +619,287 @@ const UserCreation = () => {
 
 
     <div className="space-y-6">
-  <Card>
-    <CardHeader>
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/user-management')}
-          className="flex items-center space-x-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to User Management</span>
-        </Button>
-      </div>
-      <CardTitle className="text-2xl font-bold">
-        Create New User
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <Label htmlFor="role">Role <span className="text-red-500">*</span></Label>
-          <MultiSelectDropdown
-            options={[
-              { value: 'Admin', label: 'Admin' },
-              { value: 'Supervisor', label: 'Supervisor' },
-              { value: 'Agent', label: 'Agent' }
-            ]}
-            selected={newUser.role}
-            onChange={handleRoleChange}
-            placeholder="Select roles..."
-            searchPlaceholder="Search roles..."
-            className={errors.role ? 'border-red-500' : ''}
-            error={!!errors.role}
-          />
-          {errors.role && <p className="text-red-500 text-xs">{errors.role}</p>}
-          {newUser.role.length > 0 && (
-            <p className="text-xs text-gray-600">
-              Selected roles: {newUser.role.join(', ')}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="firstName">First name <span className="text-red-500">*</span></Label>
-          <Input
-            id="firstName"
-            value={newUser.firstName}
-            onChange={(e) => handleInputChange('firstName', e.target.value)}
-            placeholder="Enter first name"
-            className={errors.firstName ? 'border-red-500' : ''}
-          />
-          {errors.firstName && <p className="text-red-500 text-xs">{errors.firstName}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="lastName">Last name <span className="text-red-500">*</span></Label>
-          <Input
-            id="lastName"
-            value={newUser.lastName}
-            onChange={(e) => handleInputChange('lastName', e.target.value)}
-            placeholder="Enter last name"
-            className={errors.lastName ? 'border-red-500' : ''}
-          />
-          {errors.lastName && <p className="text-red-500 text-xs">{errors.lastName}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="username">User name <span className="text-red-500">*</span></Label>
-          <Input
-            id="username"
-            value={newUser.username}
-            onChange={(e) => handleInputChange('username', e.target.value)}
-            placeholder="Enter username"
-            className={errors.username ? 'border-red-500' : ''}
-          />
-          {errors.username && <p className="text-red-500 text-xs">{errors.username}</p>}
-        </div>
-
-        <div className="space-y-2 relative">
-          <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
-          <Input
-            id="password"
-            type={showPassword ? "text" : "password"}
-            value={newUser.password}
-            onChange={(e) => handleInputChange('password', e.target.value)}
-            placeholder="Enter password"
-            className={`pr-10 ${errors.password ? 'border-red-500' : ''}`}
-          />
-          <button
-            type="button"
-            className="absolute right-3 top-9 text-gray-500"
-            onClick={() => setShowPassword((prev) => !prev)}
-            tabIndex={-1}
-          >
-            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-          </button>
-          {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="hostname">Host name <span className="text-red-500">*</span></Label>
-          <Select value={newUser.hostname} onValueChange={(value) => setNewUser({ ...newUser, hostname: value })}>
-            <SelectTrigger error={!!errors.hostname}>
-              <SelectValue placeholder="Select hostname" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10.16.7.91">10.16.7.91</SelectItem>
-              <SelectItem value="10.16.7.96">10.16.7.96</SelectItem>
-            </SelectContent>
-          </Select>
-          {errors.hostname && <p className="text-red-500 text-xs">{errors.hostname}</p>}
-        </div>
-       
-
-        {newUser.role.includes('Agent') && (
-          <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/user-management')}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to User Management</span>
+            </Button>
+          </div>
+          <CardTitle className="text-2xl font-bold">
+            Create New User
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="extension">Extension Number <span className="text-red-500">*</span></Label>
-              <Input
-                id="extension"
-                value={newUser.extension}
-                onChange={(e) => handleInputChange('extension', e.target.value)}
-                placeholder="Enter extension number"
-                className={errors.extension ? 'border-red-500' : ''}
-              />
-              {errors.extension && <p className="text-red-500 text-xs">{errors.extension}</p>}
-            </div>
-             <div className="space-y-2">
-          <Label htmlFor="type">Type <span className="text-red-500">*</span></Label>
-          <Select value={newUser.type} onValueChange={(value) => setNewUser({ ...newUser, type: value })}>
-            <SelectTrigger error={!!errors.type}>
-              <SelectValue placeholder="Select callback" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="callback">callback</SelectItem>
-              {/* <SelectItem value="10.16.7.96">10.16.7.96</SelectItem> */}
-            </SelectContent>
-          </Select>
-          {errors.type && <p className="text-red-500 text-xs">{errors.type}</p>}
-        </div>
-
-            <div className="space-y-2">
-              <Label>Queues <span className="text-red-500">*</span></Label>
+              <Label htmlFor="role">Role <span className="text-red-500">*</span></Label>
               <MultiSelectDropdown
-                options={queues.map(queue => ({
-                  value: queue.name,
-                  label: queue.name
-                }))}
-                selected={newUser.queues}
-                onChange={handleQueueChange}
-                placeholder="Select queues..."
-                searchPlaceholder="Search queues..."
-                className={errors.queues ? 'border-red-500' : ''}
-                error={!!errors.queues}
+                options={[
+                  { value: 'Admin', label: 'Admin' },
+                  { value: 'Supervisor', label: 'Supervisor' },
+                  { value: 'Agent', label: 'Agent' }
+                ]}
+                selected={newUser.role}
+                onChange={handleRoleChange}
+                placeholder="Select roles..."
+                searchPlaceholder="Search roles..."
+                className={errors.role ? 'border-red-500' : ''}
+                error={!!errors.role}
               />
-              {errors.queues && <p className="text-red-500 text-xs">{errors.queues}</p>}
-              {newUser.queues.length > 0 && (
+              {errors.role && <p className="text-red-500 text-xs">{errors.role}</p>}
+              {newUser.role.length > 0 && (
                 <p className="text-xs text-gray-600">
-                  Selected queues: {newUser.queues.join(', ')}
+                  Selected roles: {newUser.role.join(', ')}
                 </p>
               )}
             </div>
 
-            {newUser.role.includes('Agent') && newUser.role.length === 1 && (
-              <div className="space-y-2">
-                <Label htmlFor="supervisor">Supervisor <span className="text-red-500">*</span></Label>
-                <Select value={newUser.supervisor} onValueChange={(value) => setNewUser({ ...newUser, supervisor: value })}>
-                  <SelectTrigger error={!!errors.supervisor}>
-                    <SelectValue placeholder="Select supervisor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {supervisors.map((supervisor) => (
-                      <SelectItem key={supervisor.directory_id} value={supervisor.user_id}>
-                        {supervisor.firstname} {supervisor.lastname}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.supervisor && <p className="text-red-500 text-xs">{errors.supervisor}</p>}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First name <span className="text-red-500">*</span></Label>
+              <Input
+                id="firstName"
+                value={newUser.firstName}
+                onChange={(e) => handleInputChange('firstName', e.target.value)}
+                placeholder="Enter first name"
+                className={errors.firstName ? 'border-red-500' : ''}
+              />
+              {errors.firstName && <p className="text-red-500 text-xs">{errors.firstName}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last name <span className="text-red-500">*</span></Label>
+              <Input
+                id="lastName"
+                value={newUser.lastName}
+                onChange={(e) => handleInputChange('lastName', e.target.value)}
+                placeholder="Enter last name"
+                className={errors.lastName ? 'border-red-500' : ''}
+              />
+              {errors.lastName && <p className="text-red-500 text-xs">{errors.lastName}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="username">User name <span className="text-red-500">*</span></Label>
+              <Input
+                id="username"
+                value={newUser.username}
+                onChange={(e) => handleInputChange('username', e.target.value)}
+                placeholder="Enter username"
+                className={errors.username ? 'border-red-500' : ''}
+              />
+              {errors.username && <p className="text-red-500 text-xs">{errors.username}</p>}
+            </div>
+
+            <div className="space-y-2 relative">
+              <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={newUser.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                placeholder="Enter password"
+                className={`pr-10 ${errors.password ? 'border-red-500' : ''}`}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-9 text-gray-500"
+                onClick={() => setShowPassword((prev) => !prev)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+              {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="hostname">Host name <span className="text-red-500">*</span></Label>
+              <Select value={newUser.hostname} onValueChange={(value) => setNewUser({ ...newUser, hostname: value })}>
+                <SelectTrigger error={!!errors.hostname}>
+                  <SelectValue placeholder="Select hostname" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10.16.7.91">10.16.7.91</SelectItem>
+                  <SelectItem value="10.16.7.96">10.16.7.96</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.hostname && <p className="text-red-500 text-xs">{errors.hostname}</p>}
+            </div>
+
+
+            {newUser.role.includes('Agent') && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="extension">Extension Number <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="extension"
+                    value={newUser.extension}
+                    onChange={(e) => handleInputChange('extension', e.target.value)}
+                    placeholder="Enter extension number"
+                    className={errors.extension ? 'border-red-500' : ''}
+                  />
+                  {errors.extension && <p className="text-red-500 text-xs">{errors.extension}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type <span className="text-red-500">*</span></Label>
+                  <Select value={newUser.type} onValueChange={(value) => setNewUser({ ...newUser, type: value })}>
+                    <SelectTrigger error={!!errors.type}>
+                      <SelectValue placeholder="Select callback" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="callback">callback</SelectItem>
+                      {/* <SelectItem value="10.16.7.96">10.16.7.96</SelectItem> */}
+                    </SelectContent>
+                  </Select>
+                  {errors.type && <p className="text-red-500 text-xs">{errors.type}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Queues <span className="text-red-500">*</span></Label>
+                  <MultiSelectDropdown
+                    options={queues.map(queue => ({
+                      value: queue.name,
+                      label: queue.name
+                    }))}
+                    selected={newUser.queues}
+                    onChange={handleQueueChange}
+                    placeholder="Select queues..."
+                    searchPlaceholder="Search queues..."
+                    className={errors.queues ? 'border-red-500' : ''}
+                    error={!!errors.queues}
+                  />
+                  {errors.queues && <p className="text-red-500 text-xs">{errors.queues}</p>}
+                  {newUser.queues.length > 0 && (
+                    <p className="text-xs text-gray-600">
+                      Selected queues: {newUser.queues.join(', ')}
+                    </p>
+                  )}
+                </div>
+
+                {newUser.role.includes('Agent') && newUser.role.length === 1 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="supervisor">Supervisor <span className="text-red-500">*</span></Label>
+                    <Select value={newUser.supervisor} onValueChange={(value) => setNewUser({ ...newUser, supervisor: value })}>
+                      <SelectTrigger error={!!errors.supervisor}>
+                        <SelectValue placeholder="Select supervisor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {supervisors.map((supervisor) => (
+                          <SelectItem key={supervisor.directory_id} value={supervisor.user_id}>
+                            {supervisor.firstname} {supervisor.lastname}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.supervisor && <p className="text-red-500 text-xs">{errors.supervisor}</p>}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="level">Level <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="level"
+                    type="number"
+                    value={newUser.level || ''}
+                    onChange={(e) => handleInputChange('level', e.target.value)}
+                    placeholder="Enter level"
+                    className={errors.level ? 'border-red-500' : ''}
+                  />
+                  {errors.level && <p className="text-red-500 text-xs">{errors.level}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="position">Position <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="position"
+                    type="number"
+                    value={newUser.position || ''}
+                    onChange={(e) => handleInputChange('position', e.target.value)}
+                    placeholder="Enter position"
+                    className={errors.position ? 'border-red-500' : ''}
+                  />
+                  {errors.position && <p className="text-red-500 text-xs">{errors.position}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wrapUpTime">Wrap up time <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="wrapUpTime"
+                    type="number"
+                    value={newUser.wrapUpTime || ''}
+                    onChange={(e) => handleInputChange('wrapUpTime', e.target.value)}
+                    placeholder="Enter wrap up time"
+                    className={errors.wrapUpTime ? 'border-red-500' : ''}
+                  />
+                  {errors.wrapUpTime && <p className="text-red-500 text-xs">{errors.wrapUpTime}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="maxNoAnswer">Max no answer <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="maxNoAnswer"
+                    type="number"
+                    value={newUser.maxNoAnswer || ''}
+                    onChange={(e) => handleInputChange('maxNoAnswer', e.target.value)}
+                    placeholder="Enter max no answer"
+                    className={errors.maxNoAnswer ? 'border-red-500' : ''}
+                  />
+                  {errors.maxNoAnswer && <p className="text-red-500 text-xs">{errors.maxNoAnswer}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rejectDelayTime">Reject delay time <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="rejectDelayTime"
+                    type="number"
+                    value={newUser.rejectDelayTime || ''}
+                    onChange={(e) => handleInputChange('rejectDelayTime', e.target.value)}
+                    placeholder="Enter reject delay time"
+                    className={errors.rejectDelayTime ? 'border-red-500' : ''}
+                  />
+                  {errors.rejectDelayTime && <p className="text-red-500 text-xs">{errors.rejectDelayTime}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="busyDelayTime">Busy delay time <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="busyDelayTime"
+                    type="number"
+                    value={newUser.busyDelayTime || ''}
+                    onChange={(e) => handleInputChange('busyDelayTime', e.target.value)}
+                    placeholder="Enter busy delay time"
+                    className={errors.busyDelayTime ? 'border-red-500' : ''}
+                  />
+                  {errors.busyDelayTime && <p className="text-red-500 text-xs">{errors.busyDelayTime}</p>}
+                </div>
+              </>
             )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="level">Level <span className="text-red-500">*</span></Label>
-              <Input
-                id="level"
-                type="number"
-                value={newUser.level || ''}
-                onChange={(e) => handleInputChange('level', e.target.value)}
-                placeholder="Enter level"
-                className={errors.level ? 'border-red-500' : ''}
-              />
-              {errors.level && <p className="text-red-500 text-xs">{errors.level}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="position">Position <span className="text-red-500">*</span></Label>
-              <Input
-                id="position"
-                type="number"
-                value={newUser.position || ''}
-                onChange={(e) => handleInputChange('position', e.target.value)}
-                placeholder="Enter position"
-                className={errors.position ? 'border-red-500' : ''}
-              />
-              {errors.position && <p className="text-red-500 text-xs">{errors.position}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="wrapUpTime">Wrap up time <span className="text-red-500">*</span></Label>
-              <Input
-                id="wrapUpTime"
-                type="number"
-                value={newUser.wrapUpTime || ''}
-                onChange={(e) => handleInputChange('wrapUpTime', e.target.value)}
-                placeholder="Enter wrap up time"
-                className={errors.wrapUpTime ? 'border-red-500' : ''}
-              />
-              {errors.wrapUpTime && <p className="text-red-500 text-xs">{errors.wrapUpTime}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="maxNoAnswer">Max no answer <span className="text-red-500">*</span></Label>
-              <Input
-                id="maxNoAnswer"
-                type="number"
-                value={newUser.maxNoAnswer || ''}
-                onChange={(e) => handleInputChange('maxNoAnswer', e.target.value)}
-                placeholder="Enter max no answer"
-                className={errors.maxNoAnswer ? 'border-red-500' : ''}
-              />
-              {errors.maxNoAnswer && <p className="text-red-500 text-xs">{errors.maxNoAnswer}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="rejectDelayTime">Reject delay time <span className="text-red-500">*</span></Label>
-              <Input
-                id="rejectDelayTime"
-                type="number"
-                value={newUser.rejectDelayTime || ''}
-                onChange={(e) => handleInputChange('rejectDelayTime', e.target.value)}
-                placeholder="Enter reject delay time"
-                className={errors.rejectDelayTime ? 'border-red-500' : ''}
-              />
-              {errors.rejectDelayTime && <p className="text-red-500 text-xs">{errors.rejectDelayTime}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="busyDelayTime">Busy delay time <span className="text-red-500">*</span></Label>
-              <Input
-                id="busyDelayTime"
-                type="number"
-                value={newUser.busyDelayTime || ''}
-                onChange={(e) => handleInputChange('busyDelayTime', e.target.value)}
-                placeholder="Enter busy delay time"
-                className={errors.busyDelayTime ? 'border-red-500' : ''}
-              />
-              {errors.busyDelayTime && <p className="text-red-500 text-xs">{errors.busyDelayTime}</p>}
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="flex justify-end space-x-4 pt-6">
-        <Button
-          variant="outline"
-          onClick={() => navigate('/user-management')}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSave}
-          disabled={isValidating}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg flex items-center"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          {isValidating ? 'Creating...' : 'Create User'}
-        </Button>
-      </div>
-    </CardContent>
-  </Card>
-</div>
+          <div className="flex justify-end space-x-4 pt-6">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/user-management')}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isValidating}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg flex items-center"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {isValidating ? 'Creating...' : 'Create User'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
